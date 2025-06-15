@@ -3,17 +3,9 @@
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
 import { useEffect, useState } from "react"
-import {
-  Dimensions,
-  Image,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native"
+import { Dimensions, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native"
+import MapboxMap from "../../components/MapboxMap"
+import { SENSOR_LOCATIONS } from "../../config/mapbox"
 
 const { width } = Dimensions.get("window")
 
@@ -27,12 +19,6 @@ const mockData = {
   keyLocations: [
     { name: "Main Library", aqi: 42, trend: "up" },
     { name: "Student Center", aqi: 38, trend: "down" },
-  ],
-  allSensors: [
-    { id: 1, name: "Main Library - Floor 1", aqi: 42, status: "good" },
-    { id: 2, name: "Student Center - West Wing", aqi: 45, status: "good" },
-    { id: 3, name: "Science Building - Lab Area", aqi: 38, status: "good" },
-    { id: 4, name: "Sports Complex - Indoor", aqi: 41, status: "good" },
   ],
 }
 
@@ -62,6 +48,14 @@ export default function HomeScreen() {
     if (aqi <= 100) return "Moderate"
     if (aqi <= 150) return "Unhealthy"
     return "Very Unhealthy"
+  }
+
+  const handleMapPress = () => {
+    router.push("/(tabs)/map")
+  }
+
+  const handleSensorPress = (sensor: any) => {
+    router.push(`/sensor/${sensor.id}`)
   }
 
   const renderAQICircle = () => {
@@ -98,18 +92,18 @@ export default function HomeScreen() {
 
   const renderMapSection = () => (
     <View style={styles.mapSection}>
-      <TouchableOpacity style={styles.mapContainer} onPress={() => router.push("/(tabs)/map")}>
-        <Image
-          source={{
-            uri: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/%7B139030A9-CA1A-4A1C-B4FD-CC04E6F84838%7D-eBT9VntwUT7kWDKNf3QaQaC2eKJLTk.png",
-          }}
-          style={styles.mapImage}
-          resizeMode="cover"
+      <TouchableOpacity style={styles.mapContainer} onPress={handleMapPress}>
+        <MapboxMap
+          sensors={SENSOR_LOCATIONS.filter((sensor) => sensor.isMonitored)}
+          onSensorPress={handleSensorPress}
+          style={styles.mapView}
+          interactive={false}
         />
         <View style={styles.mapOverlay}>
-          <View style={[styles.mapDot, { backgroundColor: "#4CAF50", top: "30%", left: "40%" }]} />
-          <View style={[styles.mapDot, { backgroundColor: "#4CAF50", top: "60%", right: "30%" }]} />
-          <View style={[styles.mapDot, { backgroundColor: "#FF9800", top: "45%", left: "60%" }]} />
+          <View style={styles.mapOverlayContent}>
+            <Text style={styles.mapOverlayText}>Tap to view full map</Text>
+            <Ionicons name="expand-outline" size={20} color="#FFFFFF" />
+          </View>
         </View>
       </TouchableOpacity>
       <View style={styles.mapLegend}>
@@ -155,11 +149,7 @@ export default function HomeScreen() {
 
   const renderMonitoredSensors = () => {
     // Only show sensors that are being monitored (based on settings)
-    const monitoredSensors = mockData.allSensors.filter(
-      (sensor) =>
-        // This would be based on user's monitoring preferences from settings
-        [1, 2].includes(sensor.id), // Example: only showing first 2 sensors as monitored
-    )
+    const monitoredSensors = SENSOR_LOCATIONS.filter((sensor) => sensor.isMonitored)
 
     if (monitoredSensors.length === 0) {
       return (
@@ -230,7 +220,7 @@ export default function HomeScreen() {
         {/* Key Locations */}
         {renderKeyLocations()}
 
-        {/* All Sensors */}
+        {/* Monitored Sensors */}
         {renderMonitoredSensors()}
       </ScrollView>
     </SafeAreaView>
@@ -326,9 +316,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     position: "relative",
   },
-  mapImage: {
-    width: "100%",
-    height: "100%",
+  mapView: {
+    flex: 1,
   },
   mapOverlay: {
     position: "absolute",
@@ -336,14 +325,23 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.1)",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  mapDot: {
-    position: "absolute",
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: "#FFFFFF",
+  mapOverlayContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  mapOverlayText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "500",
+    marginRight: 8,
   },
   mapLegend: {
     flexDirection: "row",
