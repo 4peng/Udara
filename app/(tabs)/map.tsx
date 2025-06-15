@@ -2,10 +2,20 @@
 
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
-import { useState } from "react"
-import { Modal, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native"
+import { useEffect, useState } from "react"
+import {
+  ActivityIndicator,
+  Modal,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native"
 import MapboxMap from "../../components/MapboxMap"
-import { SENSOR_LOCATIONS } from "../../config/mapbox"
+import { useDevices } from "../../hooks/useDevices"
 
 export default function MapScreen() {
   const [selectedSensor, setSelectedSensor] = useState<any>(null)
@@ -16,6 +26,14 @@ export default function MapScreen() {
     unhealthy: true,
     hazardous: true,
   })
+
+  const { devices, loading, error, refreshDevices } = useDevices()
+
+  // Add this after the useDevices hook call
+  useEffect(() => {
+    console.log("Map screen - devices loaded:", devices.length)
+    console.log("Map screen - filtered sensors:", getFilteredSensors().length)
+  }, [devices])
 
   const getAQIColor = (aqi: number) => {
     if (aqi <= 50) return "#4CAF50"
@@ -32,7 +50,7 @@ export default function MapScreen() {
   }
 
   const getFilteredSensors = () => {
-    return SENSOR_LOCATIONS.filter((sensor) => {
+    return devices.filter((sensor) => {
       const status = getStatusText(sensor.aqi).toLowerCase()
       if (status === "good") return activeFilters.good
       if (status === "moderate") return activeFilters.moderate
@@ -59,8 +77,8 @@ export default function MapScreen() {
         <TouchableOpacity style={styles.headerButton} onPress={() => setShowFilters(true)}>
           <Ionicons name="options-outline" size={24} color="#333" />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.headerButton}>
-          <Ionicons name="locate-outline" size={24} color="#333" />
+        <TouchableOpacity style={styles.headerButton} onPress={refreshDevices}>
+          <Ionicons name="refresh-outline" size={24} color="#333" />
         </TouchableOpacity>
       </View>
     </View>
@@ -165,6 +183,35 @@ export default function MapScreen() {
       </View>
     </Modal>
   )
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="dark-content" />
+        {renderHeader()}
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4361EE" />
+          <Text style={styles.loadingText}>Loading map data...</Text>
+        </View>
+      </SafeAreaView>
+    )
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="dark-content" />
+        {renderHeader()}
+        <View style={styles.errorContainer}>
+          <Ionicons name="warning-outline" size={48} color="#F44336" />
+          <Text style={styles.errorText}>Failed to load map data</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={refreshDevices}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    )
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -308,6 +355,40 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     marginRight: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    fontSize: 16,
+    color: "#666",
+    marginTop: 12,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: "#F44336",
+    marginTop: 12,
+    textAlign: "center",
+  },
+  retryButton: {
+    backgroundColor: "#4361EE",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  retryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
   },
   modalOverlay: {
     flex: 1,

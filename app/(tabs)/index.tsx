@@ -3,27 +3,30 @@
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
 import { useEffect, useState } from "react"
-import { Dimensions, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native"
+import {
+  __DEV__,
+  ActivityIndicator,
+  Dimensions,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native"
 import MapboxMap from "../../components/MapboxMap"
-import { SENSOR_LOCATIONS } from "../../config/mapbox"
+import { useDevices } from "../../hooks/useDevices"
 
 const { width } = Dimensions.get("window")
 
-// Mock data - replace with real data from your API
-const mockData = {
-  currentAQI: 42,
-  status: "Good",
-  temperature: "72°F",
-  humidity: "45%",
-  lastUpdated: "2m ago",
-  keyLocations: [
-    { name: "Main Library", aqi: 42, trend: "up" },
-    { name: "Student Center", aqi: 38, trend: "down" },
-  ],
-}
+// Enable debug mode for development
+const DEBUG_MODE = __DEV__
 
 export default function HomeScreen() {
   const [currentDate, setCurrentDate] = useState("")
+  const [showDebugInfo, setShowDebugInfo] = useState(false)
+  const { devices, loading, error, refreshDevices, getMonitoredDevices } = useDevices()
 
   useEffect(() => {
     const date = new Date()
@@ -35,6 +38,21 @@ export default function HomeScreen() {
     }
     setCurrentDate(date.toLocaleDateString("en-US", options))
   }, [])
+
+  useEffect(() => {
+    if (DEBUG_MODE) {
+      console.log("🏠 HomeScreen: Component mounted")
+      console.log("📊 HomeScreen: Devices state:", {
+        count: devices.length,
+        loading,
+        error,
+        devices: devices.map((d) => ({ id: d.id, name: d.name, aqi: d.aqi })),
+      })
+    }
+  }, [devices, loading, error])
+
+  // Add safety check for devices
+  const safeDevices = Array.isArray(devices) ? devices : []
 
   const getAQIColor = (aqi: number) => {
     if (aqi <= 50) return "#4CAF50" // Good - Green
@@ -50,21 +68,48 @@ export default function HomeScreen() {
     return "Very Unhealthy"
   }
 
+  const getOverallAQI = () => {
+    const monitoredDevices = getMonitoredDevices()
+    if (monitoredDevices.length === 0) return 42 // Default fallback
+
+    const totalAQI = monitoredDevices.reduce((sum, device) => sum + (device.aqi || 0), 0)
+    return Math.round(totalAQI / monitoredDevices.length)
+  }
+
   const handleMapPress = () => {
+    console.log("🗺️ HomeScreen: Map pressed, navigating to map tab")
     router.push("/(tabs)/map")
   }
 
   const handleSensorPress = (sensor: any) => {
-    router.push(`/sensor/${sensor.id}`)
+    if (sensor && sensor.id) {
+      console.log(`🎯 HomeScreen: Sensor pressed: ${sensor.name} (${sensor.id})`)
+      router.push(`/sensor/${sensor.id}`)
+    } else {
+      console.warn("⚠️ HomeScreen: Invalid sensor pressed:", sensor)
+    }
+  }
+
+  const handleRefresh = () => {
+    console.log("🔄 HomeScreen: Refresh requested")
+    refreshDevices()
+  }
+
+  const toggleDebugInfo = () => {
+    setShowDebugInfo(!showDebugInfo)
+    console.log(`🐛 HomeScreen: Debug info ${!showDebugInfo ? "enabled" : "disabled"}`)
   }
 
   const renderAQICircle = () => {
-    const color = getAQIColor(mockData.currentAQI)
+    const currentAQI = getOverallAQI()
+    const color = getAQIColor(currentAQI)
+    const status = getStatusText(currentAQI)
+
     return (
       <View style={styles.aqiContainer}>
         <View style={[styles.aqiCircle, { borderColor: color }]}>
-          <Text style={[styles.aqiNumber, { color }]}>{mockData.currentAQI}</Text>
-          <Text style={[styles.aqiStatus, { color }]}>{mockData.status}</Text>
+          <Text style={[styles.aqiNumber, { color }]}>{currentAQI}</Text>
+          <Text style={[styles.aqiStatus, { color }]}>{status}</Text>
         </View>
       </View>
     )
@@ -75,83 +120,137 @@ export default function HomeScreen() {
       <View style={styles.dataItem}>
         <Ionicons name="thermometer-outline" size={16} color="#666" />
         <Text style={styles.dataLabel}>Temperature</Text>
-        <Text style={styles.dataValue}>{mockData.temperature}</Text>
+        <Text style={styles.dataValue}>24°C</Text>
       </View>
       <View style={styles.dataItem}>
         <Ionicons name="water-outline" size={16} color="#666" />
         <Text style={styles.dataLabel}>Humidity</Text>
-        <Text style={styles.dataValue}>{mockData.humidity}</Text>
+        <Text style={styles.dataValue}>65%</Text>
       </View>
       <View style={styles.dataItem}>
         <Ionicons name="time-outline" size={16} color="#666" />
         <Text style={styles.dataLabel}>Updated</Text>
-        <Text style={styles.dataValue}>{mockData.lastUpdated}</Text>
+        <Text style={styles.dataValue}>2m ago</Text>
       </View>
     </View>
   )
 
-  const renderMapSection = () => (
-    <View style={styles.mapSection}>
-      <TouchableOpacity style={styles.mapContainer} onPress={handleMapPress}>
-        <MapboxMap
-          sensors={SENSOR_LOCATIONS.filter((sensor) => sensor.isMonitored)}
-          onSensorPress={handleSensorPress}
-          style={styles.mapView}
-          interactive={false}
-        />
-        <View style={styles.mapOverlay}>
-          <View style={styles.mapOverlayContent}>
-            <Text style={styles.mapOverlayText}>Tap to view full map</Text>
-            <Ionicons name="expand-outline" size={20} color="#FFFFFF" />
-          </View>
+  const renderMapSection = () => {
+    if (loading) {
+      return (
+        <View style={[styles.mapSection, styles.loadingContainer]}>
+          <ActivityIndicator size="large" color="#4361EE" />
+          <Text style={styles.loadingText}>Loading map...</Text>
         </View>
-      </TouchableOpacity>
-      <View style={styles.mapLegend}>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: "#4CAF50" }]} />
-          <Text style={styles.legendText}>Good (0-50)</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: "#FF9800" }]} />
-          <Text style={styles.legendText}>Moderate (51-100)</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: "#F44336" }]} />
-          <Text style={styles.legendText}>Unhealthy (101-150)</Text>
-        </View>
-      </View>
-    </View>
-  )
+      )
+    }
 
-  const renderKeyLocations = () => (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Key Locations</Text>
-      <View style={styles.keyLocationsContainer}>
-        {mockData.keyLocations.map((location, index) => (
-          <View key={index} style={styles.keyLocationItem}>
-            <View style={styles.locationInfo}>
-              <Ionicons name="location-outline" size={20} color="#666" />
-              <View style={styles.locationDetails}>
-                <Text style={styles.locationName}>{location.name}</Text>
-                <Text style={styles.locationAQI}>{location.aqi}</Text>
-              </View>
+    if (error) {
+      return (
+        <View style={[styles.mapSection, styles.errorContainer]}>
+          <Ionicons name="warning-outline" size={48} color="#F44336" />
+          <Text style={styles.errorText}>Failed to load map data</Text>
+          <Text style={styles.errorSubtext}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      )
+    }
+
+    if (safeDevices.length === 0) {
+      return (
+        <View style={[styles.mapSection, styles.errorContainer]}>
+          <Ionicons name="location-outline" size={48} color="#ccc" />
+          <Text style={styles.errorText}>No sensors available</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
+            <Text style={styles.retryButtonText}>Refresh</Text>
+          </TouchableOpacity>
+        </View>
+      )
+    }
+
+    console.log(`🗺️ HomeScreen: Rendering map with ${safeDevices.length} sensors`)
+
+    return (
+      <View style={styles.mapSection}>
+        <TouchableOpacity style={styles.mapContainer} onPress={handleMapPress}>
+          <MapboxMap
+            sensors={safeDevices}
+            onSensorPress={handleSensorPress}
+            style={styles.mapView}
+            interactive={false}
+          />
+          <View style={styles.mapOverlay}>
+            <View style={styles.mapOverlayContent}>
+              <Text style={styles.mapOverlayText}>Tap to view full map</Text>
+              <Ionicons name="expand-outline" size={20} color="#FFFFFF" />
             </View>
-            <Ionicons
-              name={location.trend === "up" ? "trending-up" : "trending-down"}
-              size={20}
-              color={location.trend === "up" ? "#4CAF50" : "#F44336"}
-            />
           </View>
-        ))}
+        </TouchableOpacity>
+        <View style={styles.mapLegend}>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: "#4CAF50" }]} />
+            <Text style={styles.legendText}>Good (0-50)</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: "#FF9800" }]} />
+            <Text style={styles.legendText}>Moderate (51-100)</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: "#F44336" }]} />
+            <Text style={styles.legendText}>Unhealthy (101-150)</Text>
+          </View>
+        </View>
       </View>
-    </View>
-  )
+    )
+  }
+
+  const renderKeyLocations = () => {
+    const monitoredDevices = safeDevices.filter((device) => device.isMonitored)
+    const topLocations = monitoredDevices.slice(0, 2)
+
+    if (topLocations.length === 0) {
+      return null
+    }
+
+    return (
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Key Locations</Text>
+        <View style={styles.keyLocationsContainer}>
+          {topLocations.map((device, index) => (
+            <View key={device.id} style={styles.keyLocationItem}>
+              <View style={styles.locationInfo}>
+                <Ionicons name="location-outline" size={20} color="#666" />
+                <View style={styles.locationDetails}>
+                  <Text style={styles.locationName}>{device.location}</Text>
+                  <Text style={styles.locationAQI}>{device.aqi}</Text>
+                </View>
+              </View>
+              <Ionicons name="trending-up" size={20} color={getAQIColor(device.aqi)} />
+            </View>
+          ))}
+        </View>
+      </View>
+    )
+  }
 
   const renderMonitoredSensors = () => {
-    // Only show sensors that are being monitored (based on settings)
-    const monitoredSensors = SENSOR_LOCATIONS.filter((sensor) => sensor.isMonitored)
+    const monitoredDevices = getMonitoredDevices()
 
-    if (monitoredSensors.length === 0) {
+    if (loading) {
+      return (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Monitored Sensors</Text>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color="#4361EE" />
+            <Text style={styles.loadingText}>Loading sensors...</Text>
+          </View>
+        </View>
+      )
+    }
+
+    if (monitoredDevices.length === 0) {
       return (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Monitored Sensors</Text>
@@ -167,17 +266,18 @@ export default function HomeScreen() {
     return (
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Monitored Sensors</Text>
-        {monitoredSensors.map((sensor) => (
+        {monitoredDevices.map((device) => (
           <TouchableOpacity
-            key={sensor.id}
+            key={device.id}
             style={styles.sensorItem}
-            onPress={() => router.push(`/sensor/${sensor.id}`)}
+            onPress={() => router.push(`/sensor/${device.id}`)}
           >
             <View style={styles.sensorInfo}>
-              <View style={[styles.sensorDot, { backgroundColor: getAQIColor(sensor.aqi) }]} />
+              <View style={[styles.sensorDot, { backgroundColor: getAQIColor(device.aqi) }]} />
               <View style={styles.sensorDetails}>
-                <Text style={styles.sensorName}>{sensor.name}</Text>
-                <Text style={styles.sensorAQI}>AQI: {sensor.aqi}</Text>
+                <Text style={styles.sensorName}>{device.name}</Text>
+                <Text style={styles.sensorLocation}>{device.location}</Text>
+                <Text style={styles.sensorAQI}>AQI: {device.aqi}</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#ccc" />
@@ -198,14 +298,30 @@ export default function HomeScreen() {
           <Text style={styles.headerDate}>{currentDate}</Text>
         </View>
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.headerButton}>
+          <TouchableOpacity style={styles.headerButton} onPress={handleRefresh}>
             <Ionicons name="refresh-outline" size={24} color="#666" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.headerButton}>
+          {DEBUG_MODE && (
+            <TouchableOpacity style={styles.headerButton} onPress={toggleDebugInfo}>
+              <Ionicons name="bug-outline" size={24} color={showDebugInfo ? "#4361EE" : "#666"} />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity style={styles.headerButton} onPress={() => router.push("/(tabs)/settings")}>
             <Ionicons name="settings-outline" size={24} color="#666" />
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Debug Info */}
+      {DEBUG_MODE && showDebugInfo && (
+        <View style={styles.debugContainer}>
+          <Text style={styles.debugTitle}>🐛 Debug Information</Text>
+          <Text style={styles.debugText}>Devices: {safeDevices.length}</Text>
+          <Text style={styles.debugText}>Loading: {loading ? "Yes" : "No"}</Text>
+          <Text style={styles.debugText}>Error: {error || "None"}</Text>
+          <Text style={styles.debugText}>Monitored: {getMonitoredDevices().length}</Text>
+        </View>
+      )}
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* AQI Display */}
@@ -256,6 +372,25 @@ const styles = StyleSheet.create({
   },
   headerButton: {
     marginLeft: 16,
+  },
+  debugContainer: {
+    backgroundColor: "#FFF3CD",
+    margin: 16,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#FFEAA7",
+  },
+  debugTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#856404",
+    marginBottom: 8,
+  },
+  debugText: {
+    fontSize: 12,
+    color: "#856404",
+    marginBottom: 2,
   },
   scrollView: {
     flex: 1,
@@ -433,10 +568,52 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: "#333",
   },
+  sensorLocation: {
+    fontSize: 14,
+    color: "#666",
+    marginTop: 2,
+  },
   sensorAQI: {
     fontSize: 14,
     color: "#666",
     marginTop: 2,
+  },
+  loadingContainer: {
+    alignItems: "center",
+    paddingVertical: 40,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: "#666",
+    marginTop: 8,
+  },
+  errorContainer: {
+    alignItems: "center",
+    paddingVertical: 40,
+  },
+  errorText: {
+    fontSize: 16,
+    color: "#F44336",
+    marginTop: 12,
+    textAlign: "center",
+  },
+  errorSubtext: {
+    fontSize: 12,
+    color: "#999",
+    marginTop: 4,
+    textAlign: "center",
+  },
+  retryButton: {
+    backgroundColor: "#4361EE",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  retryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
   },
   emptyState: {
     alignItems: "center",

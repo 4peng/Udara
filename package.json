@@ -12,12 +12,14 @@
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",
+    "@react-native-async-storage/async-storage": "^1.24.0",
     "@react-native-community/slider": "^4.5.7",
     "@react-native/metro-config": "^0.80.0",
     "@react-navigation/bottom-tabs": "^7.3.10",
     "@react-navigation/elements": "^2.3.8",
     "@react-navigation/native": "^7.1.6",
-    "@rnmapbox/maps": "^10.1.39",
+    "@rnmapbox/maps": "^10.1.11",
+    "cors": "^2.8.5",
     "expo": "~53.0.11",
     "expo-blur": "~14.1.5",
     "expo-constants": "~17.1.6",
@@ -31,7 +33,9 @@
     "expo-symbols": "~0.4.5",
     "expo-system-ui": "~5.0.8",
     "expo-web-browser": "~14.1.6",
+    "express": "^5.1.0",
     "firebase": "^11.9.1",
+    "mongodb": "^6.17.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-native": "0.79.3",
@@ -49,6 +53,7 @@
     "@types/react": "~19.0.10",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~9.2.0",
+    "nodemon": "^3.1.10",
     "typescript": "~5.8.3"
   },
   "private": true

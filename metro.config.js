@@ -17,4 +17,10 @@ config.resolver.unstable_enablePackageExports = false;
 // Add .cjs extension support
 config.resolver.sourceExts.push('cjs');
 
+// Handle Mapbox GL dependencies
+config.resolver.platforms = ["native", "android", "ios", "web"]
+
+// Add support for optional dependencies
+config.resolver.resolverMainFields = ["react-native", "browser", "main"]
+
 module.exports = config;

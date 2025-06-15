@@ -1,8 +1,9 @@
 "use client"
 
 import { Ionicons } from "@expo/vector-icons"
+import AsyncStorage from "@react-native-async-storage/async-storage"
 import { Link, router } from "expo-router"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   Alert,
   KeyboardAvoidingView,
@@ -17,14 +18,51 @@ import {
 } from "react-native"
 import { useAuth } from "../../hooks/useAuth"
 
+const REMEMBER_ME_KEY = "@remember_me"
+const SAVED_EMAIL_KEY = "@saved_email"
+
 export default function LoginScreen() {
   const [activeTab, setActiveTab] = useState("signin")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [rememberMe, setRememberMe] = useState(false)
 
   const { signIn } = useAuth()
+
+  // Load saved email on component mount
+  useEffect(() => {
+    loadSavedCredentials()
+  }, [])
+
+  const loadSavedCredentials = async () => {
+    try {
+      const savedRememberMe = await AsyncStorage.getItem(REMEMBER_ME_KEY)
+      const savedEmail = await AsyncStorage.getItem(SAVED_EMAIL_KEY)
+
+      if (savedRememberMe === "true" && savedEmail) {
+        setRememberMe(true)
+        setEmail(savedEmail)
+      }
+    } catch (error) {
+      console.log("Error loading saved credentials:", error)
+    }
+  }
+
+  const saveCredentials = async () => {
+    try {
+      if (rememberMe) {
+        await AsyncStorage.setItem(REMEMBER_ME_KEY, "true")
+        await AsyncStorage.setItem(SAVED_EMAIL_KEY, email)
+      } else {
+        await AsyncStorage.removeItem(REMEMBER_ME_KEY)
+        await AsyncStorage.removeItem(SAVED_EMAIL_KEY)
+      }
+    } catch (error) {
+      console.log("Error saving credentials:", error)
+    }
+  }
 
   const handleSignIn = async () => {
     if (!email || !password) {
@@ -33,18 +71,31 @@ export default function LoginScreen() {
     }
 
     setLoading(true)
-    const result = await signIn(email, password)
-    setLoading(false)
 
-    if (result.success) {
-      router.replace("/(tabs)")
-    } else {
-      Alert.alert("Sign In Failed", result.error)
+    try {
+      const result = await signIn(email, password)
+
+      if (result.success) {
+        // Save credentials if remember me is checked
+        await saveCredentials()
+        router.replace("/(tabs)")
+      } else {
+        Alert.alert("Sign In Failed", result.error)
+      }
+    } catch (error) {
+      console.error("Sign in error:", error)
+      Alert.alert("Error", "An unexpected error occurred")
+    } finally {
+      setLoading(false)
     }
   }
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword)
+  }
+
+  const toggleRememberMe = () => {
+    setRememberMe(!rememberMe)
   }
 
   return (
@@ -101,11 +152,20 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
 
-          <Link href="/(auth)/forgot-password" asChild>
-            <TouchableOpacity style={styles.forgotPassword}>
-              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+          <View style={styles.optionsContainer}>
+            <TouchableOpacity style={styles.rememberMeContainer} onPress={toggleRememberMe}>
+              <View style={[styles.checkbox, rememberMe && styles.checkboxActive]}>
+                {rememberMe && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
+              </View>
+              <Text style={styles.rememberMeText}>Remember me</Text>
             </TouchableOpacity>
-          </Link>
+
+            <Link href="/(auth)/forgot-password" asChild>
+              <TouchableOpacity style={styles.forgotPassword}>
+                <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+              </TouchableOpacity>
+            </Link>
+          </View>
 
           <TouchableOpacity
             style={[styles.signInButton, loading && styles.signInButtonDisabled]}
@@ -234,9 +294,36 @@ const styles = StyleSheet.create({
   eyeIcon: {
     padding: 10,
   },
-  forgotPassword: {
-    alignSelf: "flex-end",
+  optionsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 20,
+  },
+  rememberMeContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: "#E0E0E0",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 8,
+  },
+  checkboxActive: {
+    backgroundColor: "#4361EE",
+    borderColor: "#4361EE",
+  },
+  rememberMeText: {
+    fontSize: 14,
+    color: "#666",
+  },
+  forgotPassword: {
+    // No additional styles needed
   },
   forgotPasswordText: {
     color: "#4361EE",

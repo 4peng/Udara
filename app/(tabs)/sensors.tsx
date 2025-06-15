@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
 import { useState } from "react"
 import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"
+import { useDevices } from "../../hooks/useDevices"
 
 // Mock data for all sensors
 const allSensors = [
@@ -43,7 +44,7 @@ const categories = ["All", "Monitored", "Good", "Moderate", "Unhealthy"]
 export default function SensorsScreen() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("All")
-  const [sensors, setSensors] = useState(allSensors)
+  const { devices, loading, error, toggleDeviceMonitoring } = useDevices()
 
   const getAQIColor = (aqi: number) => {
     if (aqi <= 50) return "#4CAF50"
@@ -59,14 +60,12 @@ export default function SensorsScreen() {
     return "Very Unhealthy"
   }
 
-  const toggleMonitoring = (sensorId: number) => {
-    setSensors(
-      sensors.map((sensor) => (sensor.id === sensorId ? { ...sensor, isMonitored: !sensor.isMonitored } : sensor)),
-    )
+  const toggleMonitoring = (sensorId: string) => {
+    toggleDeviceMonitoring(sensorId)
   }
 
   const getFilteredSensors = () => {
-    let filtered = sensors
+    let filtered = devices
 
     // Filter by search query
     if (searchQuery) {
@@ -136,7 +135,7 @@ export default function SensorsScreen() {
     </View>
   )
 
-  const renderSensorCard = (sensor: (typeof allSensors)[0]) => (
+  const renderSensorCard = (sensor: any) => (
     <TouchableOpacity key={sensor.id} style={styles.sensorCard} onPress={() => router.push(`/sensor/${sensor.id}`)}>
       <View style={styles.sensorCardContent}>
         <View style={styles.sensorInfo}>
