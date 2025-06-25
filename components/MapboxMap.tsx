@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { ActivityIndicator, StyleSheet, View } from "react-native"
 import { CAMPUS_CENTER, DEFAULT_MAP_STYLE, MAPBOX_ACCESS_TOKEN, MAPBOX_STATUS } from "../config/mapbox"
+import { getAQIColor } from "../utils/aqiUtils"
 import FallbackMap from "./FallbackMap"
 
 // Import Mapbox components
@@ -68,13 +69,6 @@ export default function MapboxMap({
     }
     setUseMapbox(true)
   }, [])
-
-  const getAQIColor = (aqi: number) => {
-    if (aqi <= 50) return "#4CAF50"
-    if (aqi <= 100) return "#FF9800"
-    if (aqi <= 150) return "#F44336"
-    return "#9C27B0"
-  }
 
   const handleSensorPress = (sensor: Sensor) => {
     if (onSensorPress) {

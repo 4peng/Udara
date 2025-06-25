@@ -32,10 +32,9 @@ export default function FallbackMap({ sensors, onSensorPress, style, showDebugIn
   }
 
   const getStatusText = (aqi: number) => {
-    if (aqi <= 50) return "Good"
-    if (aqi <= 100) return "Moderate"
-    if (aqi <= 150) return "Unhealthy"
-    return "Very Unhealthy"
+    if (aqi <= 100) return "Healthy"
+    if (aqi <= 200) return "Moderate"
+    return "Hazardous"
   }
 
   const renderDebugInfo = () => {

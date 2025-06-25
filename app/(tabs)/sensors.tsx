@@ -5,6 +5,7 @@ import { router } from "expo-router"
 import { useState } from "react"
 import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"
 import { useDevices } from "../../hooks/useDevices"
+import { getAQIColor, getAQIStatus } from "../../utils/aqiUtils"
 
 // Mock data for all sensors
 const allSensors = [
@@ -39,26 +40,12 @@ const allSensors = [
   { id: 8, name: "Cafeteria - Main Hall", location: "Student Center", aqi: 52, status: "moderate", isMonitored: false },
 ]
 
-const categories = ["All", "Monitored", "Good", "Moderate", "Unhealthy"]
+const categories = ["All", "Monitored", "Healthy", "Moderate", "Hazardous"]
 
 export default function SensorsScreen() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("All")
   const { devices, loading, error, toggleDeviceMonitoring } = useDevices()
-
-  const getAQIColor = (aqi: number) => {
-    if (aqi <= 50) return "#4CAF50"
-    if (aqi <= 100) return "#FF9800"
-    if (aqi <= 150) return "#F44336"
-    return "#9C27B0"
-  }
-
-  const getStatusText = (aqi: number) => {
-    if (aqi <= 50) return "Good"
-    if (aqi <= 100) return "Moderate"
-    if (aqi <= 150) return "Unhealthy"
-    return "Very Unhealthy"
-  }
 
   const toggleMonitoring = (sensorId: string) => {
     toggleDeviceMonitoring(sensorId)
@@ -81,7 +68,7 @@ export default function SensorsScreen() {
       if (selectedCategory === "Monitored") {
         filtered = filtered.filter((sensor) => sensor.isMonitored)
       } else {
-        filtered = filtered.filter((sensor) => getStatusText(sensor.aqi) === selectedCategory)
+        filtered = filtered.filter((sensor) => getAQIStatus(sensor.aqi) === selectedCategory)
       }
     }
 
@@ -146,7 +133,7 @@ export default function SensorsScreen() {
             <View style={styles.aqiContainer}>
               <Text style={styles.aqiLabel}>AQI: </Text>
               <Text style={[styles.aqiValue, { color: getAQIColor(sensor.aqi) }]}>{sensor.aqi}</Text>
-              <Text style={[styles.statusText, { color: getAQIColor(sensor.aqi) }]}>{getStatusText(sensor.aqi)}</Text>
+              <Text style={[styles.statusText, { color: getAQIColor(sensor.aqi) }]}>{getAQIStatus(sensor.aqi)}</Text>
             </View>
           </View>
         </View>

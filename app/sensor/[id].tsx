@@ -23,14 +23,37 @@ export default function SensorDetailScreen() {
   const { id } = useLocalSearchParams()
   const [selectedPeriod, setSelectedPeriod] = useState("24h")
   const [isFavorite, setIsFavorite] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
 
-  const { device, loading, error, refetch } = useDeviceDetail(id as string)
+  const { device, loading, error, refetch, fetchHistoricalData, chartData } = useDeviceDetail(id as string)
 
   const getAQIColor = (aqi: number) => {
     if (aqi <= 50) return "#4CAF50"
     if (aqi <= 100) return "#FF9800"
     if (aqi <= 150) return "#F44336"
     return "#9C27B0"
+  }
+
+  const getAQIStatus = (aqi: number) => {
+    if (aqi <= 100) return "Healthy"
+    if (aqi <= 200) return "Moderate"
+    return "Hazardous"
+  }
+
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    await refetch()
+    setRefreshing(false)
+  }
+
+  const handlePeriodChange = async (period: string) => {
+    setSelectedPeriod(period)
+    if (device) {
+      console.log("Fetching data for period:", period)
+      setRefreshing(true)
+      await fetchHistoricalData(period)
+      setRefreshing(false)
+    }
   }
 
   const renderHeader = () => (
@@ -40,10 +63,11 @@ export default function SensorDetailScreen() {
       </TouchableOpacity>
       <View style={styles.headerCenter}>
         <Text style={styles.headerTitle}>{device?.name || "Sensor Details"}</Text>
+        <Text style={styles.headerSubtitle}>{device?.location}</Text>
       </View>
       <View style={styles.headerActions}>
-        <TouchableOpacity style={styles.headerButton} onPress={refetch}>
-          <Ionicons name="refresh-outline" size={24} color="#333" />
+        <TouchableOpacity style={styles.headerButton} onPress={handleRefresh} disabled={refreshing}>
+          <Ionicons name="refresh-outline" size={24} color={refreshing ? "#ccc" : "#333"} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.headerButton} onPress={() => setIsFavorite(!isFavorite)}>
           <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={24} color={isFavorite ? "#FF6B6B" : "#333"} />
@@ -73,6 +97,11 @@ export default function SensorDetailScreen() {
         <View style={styles.errorContainer}>
           <Ionicons name="warning-outline" size={48} color="#F44336" />
           <Text style={styles.errorText}>{error || "Sensor not found"}</Text>
+          <Text style={styles.errorSubtext}>
+            {error?.includes("No pollutant data")
+              ? "This sensor doesn't have any recorded data yet."
+              : "Please check your connection and try again."}
+          </Text>
           <TouchableOpacity style={styles.retryButton} onPress={refetch}>
             <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
@@ -83,19 +112,13 @@ export default function SensorDetailScreen() {
 
   const renderAQIDisplay = () => {
     const color = getAQIColor(device.aqi)
+    const status = getAQIStatus(device.aqi)
+
     return (
       <View style={styles.aqiSection}>
         <View style={styles.aqiMain}>
           <Text style={[styles.aqiNumber, { color }]}>{device.aqi}</Text>
-          <Text style={[styles.aqiStatus, { color }]}>
-            {device.aqi <= 50
-              ? "Good"
-              : device.aqi <= 100
-                ? "Moderate"
-                : device.aqi <= 150
-                  ? "Unhealthy"
-                  : "Very Unhealthy"}
-          </Text>
+          <Text style={[styles.aqiStatus, { color }]}>{status}</Text>
         </View>
         <Text style={styles.lastUpdated}>Last updated</Text>
         <Text style={styles.updateTime}>{device.lastUpdated}</Text>
@@ -107,14 +130,17 @@ export default function SensorDetailScreen() {
     <View style={styles.environmentalSection}>
       <View style={styles.envItem}>
         <Ionicons name="thermometer-outline" size={16} color="#666" />
+        <Text style={styles.envLabel}>Temperature</Text>
         <Text style={styles.envValue}>{device.temperature}</Text>
       </View>
       <View style={styles.envItem}>
         <Ionicons name="water-outline" size={16} color="#666" />
+        <Text style={styles.envLabel}>Humidity</Text>
         <Text style={styles.envValue}>{device.humidity}</Text>
       </View>
       <View style={styles.envItem}>
         <Ionicons name="location-outline" size={16} color="#666" />
+        <Text style={styles.envLabel}>Location</Text>
         <Text style={styles.envValue}>{device.location}</Text>
       </View>
     </View>
@@ -124,54 +150,78 @@ export default function SensorDetailScreen() {
     <View style={styles.periodSelector}>
       <TouchableOpacity
         style={[styles.periodButton, selectedPeriod === "24h" && styles.periodButtonActive]}
-        onPress={() => setSelectedPeriod("24h")}
+        onPress={() => handlePeriodChange("24h")}
       >
         <Text style={[styles.periodText, selectedPeriod === "24h" && styles.periodTextActive]}>24 Hours</Text>
       </TouchableOpacity>
       <TouchableOpacity
         style={[styles.periodButton, selectedPeriod === "1w" && styles.periodButtonActive]}
-        onPress={() => setSelectedPeriod("1w")}
+        onPress={() => handlePeriodChange("1w")}
       >
         <Text style={[styles.periodText, selectedPeriod === "1w" && styles.periodTextActive]}>1 Week</Text>
       </TouchableOpacity>
     </View>
   )
 
-  const renderChart = () => (
-    <View style={styles.chartSection}>
-      <LineChart
-        data={device.chartData}
-        width={width - 40}
-        height={200}
-        chartConfig={{
-          backgroundColor: "#ffffff",
-          backgroundGradientFrom: "#ffffff",
-          backgroundGradientTo: "#ffffff",
-          decimalPlaces: 0,
-          color: (opacity = 1) => `rgba(0, 0, 0, ${opacity * 0.1})`,
-          labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity * 0.6})`,
-          style: {
-            borderRadius: 16,
-          },
-          propsForDots: {
-            r: "3",
-            strokeWidth: "1",
-          },
-          propsForBackgroundLines: {
-            strokeDasharray: "",
-            stroke: "#e3e3e3",
-            strokeWidth: 1,
-          },
-        }}
-        bezier
-        style={styles.chart}
-        withInnerLines={true}
-        withOuterLines={false}
-        withVerticalLines={false}
-        withHorizontalLines={true}
-      />
-    </View>
-  )
+  const renderChart = () => {
+    const currentChartData = chartData || device?.chartData
+
+    if (!currentChartData || !currentChartData.labels || currentChartData.labels.length === 0) {
+      return (
+        <View style={styles.chartSection}>
+          <Text style={styles.chartTitle}>AQI Trend ({selectedPeriod})</Text>
+          <View style={styles.noDataContainer}>
+            <Ionicons name="bar-chart-outline" size={48} color="#ccc" />
+            <Text style={styles.noDataText}>No chart data available</Text>
+          </View>
+        </View>
+      )
+    }
+
+    return (
+      <View style={styles.chartSection}>
+        <Text style={styles.chartTitle}>AQI Trend ({selectedPeriod})</Text>
+        {refreshing && (
+          <View style={styles.chartLoadingOverlay}>
+            <ActivityIndicator size="small" color="#4361EE" />
+            <Text style={styles.chartLoadingText}>Updating chart...</Text>
+          </View>
+        )}
+        <LineChart
+          data={currentChartData}
+          width={width - 40}
+          height={200}
+          chartConfig={{
+            backgroundColor: "#ffffff",
+            backgroundGradientFrom: "#ffffff",
+            backgroundGradientTo: "#ffffff",
+            decimalPlaces: 0,
+            color: (opacity = 1) => `rgba(67, 97, 238, ${opacity})`,
+            labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity * 0.6})`,
+            style: {
+              borderRadius: 16,
+            },
+            propsForDots: {
+              r: "4",
+              strokeWidth: "2",
+              stroke: "#4361EE",
+            },
+            propsForBackgroundLines: {
+              strokeDasharray: "",
+              stroke: "#e3e3e3",
+              strokeWidth: 1,
+            },
+          }}
+          bezier
+          style={styles.chart}
+          withInnerLines={true}
+          withOuterLines={false}
+          withVerticalLines={false}
+          withHorizontalLines={true}
+        />
+      </View>
+    )
+  }
 
   const renderPollutantDetails = () => (
     <View style={styles.pollutantSection}>
@@ -179,18 +229,46 @@ export default function SensorDetailScreen() {
       {Object.entries(device.pollutants).map(([key, pollutant]) => (
         <View key={key} style={styles.pollutantItem}>
           <View style={styles.pollutantHeader}>
-            <Text style={styles.pollutantName}>{key.toUpperCase()}</Text>
-            <Text style={[styles.pollutantCurrent, { color: pollutant.color }]}>
-              {pollutant.current}
-              {pollutant.unit}
-            </Text>
+            <View style={styles.pollutantNameContainer}>
+              <Text style={styles.pollutantName}>{key.toUpperCase()}</Text>
+              <Text style={styles.pollutantUnit}>({pollutant.unit})</Text>
+            </View>
+            <Text style={[styles.pollutantCurrent, { color: pollutant.color }]}>{pollutant.current}</Text>
           </View>
-          <Text style={styles.pollutantAverage}>24h average: {pollutant.average24h}</Text>
+          <Text style={styles.pollutantAverage}>
+            24h average: {pollutant.average24h} {pollutant.unit}
+          </Text>
           <View style={styles.pollutantChart}>
-            <View style={[styles.pollutantLine, { backgroundColor: pollutant.color }]} />
+            <View
+              style={[
+                styles.pollutantLine,
+                {
+                  backgroundColor: pollutant.color,
+                  width: `${Math.min(100, (pollutant.current / Math.max(pollutant.current, pollutant.average24h)) * 100)}%`,
+                },
+              ]}
+            />
           </View>
         </View>
       ))}
+    </View>
+  )
+
+  const renderDataInfo = () => (
+    <View style={styles.dataInfoSection}>
+      <Text style={styles.sectionTitle}>Data Information</Text>
+      <View style={styles.dataInfoItem}>
+        <Ionicons name="server-outline" size={16} color="#666" />
+        <Text style={styles.dataInfoText}>Device ID: {device.deviceId}</Text>
+      </View>
+      <View style={styles.dataInfoItem}>
+        <Ionicons name="time-outline" size={16} color="#666" />
+        <Text style={styles.dataInfoText}>Last reading: {device.lastUpdated}</Text>
+      </View>
+      <View style={styles.dataInfoItem}>
+        <Ionicons name="analytics-outline" size={16} color="#666" />
+        <Text style={styles.dataInfoText}>Data source: Real-time sensor</Text>
+      </View>
     </View>
   )
 
@@ -204,6 +282,7 @@ export default function SensorDetailScreen() {
         {renderTimePeriodSelector()}
         {renderChart()}
         {renderPollutantDetails()}
+        {renderDataInfo()}
       </ScrollView>
     </SafeAreaView>
   )
@@ -233,6 +312,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     color: "#333",
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: "#666",
+    marginTop: 2,
   },
   headerActions: {
     flexDirection: "row",
@@ -286,6 +370,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flex: 1,
   },
+  envLabel: {
+    fontSize: 12,
+    color: "#666",
+    marginTop: 4,
+  },
   envValue: {
     fontSize: 14,
     fontWeight: "500",
@@ -323,8 +412,25 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginBottom: 20,
   },
+  chartTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 12,
+  },
   chart: {
     borderRadius: 16,
+  },
+  noDataContainer: {
+    alignItems: "center",
+    paddingVertical: 40,
+    backgroundColor: "#F8F9FA",
+    borderRadius: 12,
+  },
+  noDataText: {
+    fontSize: 16,
+    color: "#666",
+    marginTop: 12,
   },
   pollutantSection: {
     marginHorizontal: 20,
@@ -347,13 +453,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 4,
   },
+  pollutantNameContainer: {
+    flexDirection: "row",
+    alignItems: "baseline",
+  },
   pollutantName: {
     fontSize: 16,
     fontWeight: "600",
     color: "#333",
   },
+  pollutantUnit: {
+    fontSize: 12,
+    color: "#666",
+    marginLeft: 4,
+  },
   pollutantCurrent: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "bold",
   },
   pollutantAverage: {
@@ -362,15 +477,31 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   pollutantChart: {
-    height: 2,
+    height: 4,
     backgroundColor: "#F0F0F0",
-    borderRadius: 1,
+    borderRadius: 2,
     overflow: "hidden",
   },
   pollutantLine: {
     height: "100%",
-    width: "60%",
-    borderRadius: 1,
+    borderRadius: 2,
+  },
+  dataInfoSection: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    backgroundColor: "#F8F9FA",
+    borderRadius: 12,
+    padding: 16,
+  },
+  dataInfoItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  dataInfoText: {
+    fontSize: 14,
+    color: "#666",
+    marginLeft: 8,
   },
   loadingContainer: {
     flex: 1,
@@ -389,10 +520,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   errorText: {
-    fontSize: 16,
+    fontSize: 18,
     color: "#F44336",
     marginTop: 12,
     textAlign: "center",
+    fontWeight: "600",
+  },
+  errorSubtext: {
+    fontSize: 14,
+    color: "#666",
+    marginTop: 8,
+    textAlign: "center",
+    lineHeight: 20,
   },
   retryButton: {
     backgroundColor: "#4361EE",
@@ -405,5 +544,22 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 14,
     fontWeight: "600",
+  },
+  chartLoadingOverlay: {
+    position: "absolute",
+    top: 40,
+    right: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    zIndex: 1,
+  },
+  chartLoadingText: {
+    fontSize: 12,
+    color: "#4361EE",
+    marginLeft: 6,
   },
 })

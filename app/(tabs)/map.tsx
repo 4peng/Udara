@@ -2,7 +2,7 @@
 
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import {
   ActivityIndicator,
   Modal,
@@ -15,56 +15,38 @@ import {
   View,
 } from "react-native"
 import MapboxMap from "../../components/MapboxMap"
-import { useDevices } from "../../hooks/useDevices"
+import { useDevicesWithMonitoring } from "../../hooks/useDevicesWithMonitoring"
+import { getAQIColor, getAQIStatus, SIMPLE_AQI_CATEGORIES } from "../../utils/aqiUtils"
 
 export default function MapScreen() {
-  const [selectedSensor, setSelectedSensor] = useState<any>(null)
-  const [showFilters, setShowFilters] = useState(false)
-  const [activeFilters, setActiveFilters] = useState({
-    good: true,
+  const [modalVisible, setModalVisible] = useState(false)
+  const [selectedSensor, setSelectedSensor] = useState(null)
+  const [filters, setFilters] = useState({
+    healthy: true,
     moderate: true,
-    unhealthy: true,
     hazardous: true,
   })
 
-  const { devices, loading, error, refreshDevices } = useDevices()
-
-  // Add this after the useDevices hook call
-  useEffect(() => {
-    console.log("Map screen - devices loaded:", devices.length)
-    console.log("Map screen - filtered sensors:", getFilteredSensors().length)
-  }, [devices])
-
-  const getAQIColor = (aqi: number) => {
-    if (aqi <= 50) return "#4CAF50"
-    if (aqi <= 100) return "#FF9800"
-    if (aqi <= 150) return "#F44336"
-    return "#9C27B0"
-  }
-
-  const getStatusText = (aqi: number) => {
-    if (aqi <= 50) return "Good"
-    if (aqi <= 100) return "Moderate"
-    if (aqi <= 150) return "Unhealthy"
-    return "Very Unhealthy"
-  }
+  const { devices, loading, error, refreshDevices } = useDevicesWithMonitoring()
 
   const getFilteredSensors = () => {
+    if (!Array.isArray(devices)) return []
+
     return devices.filter((sensor) => {
-      const status = getStatusText(sensor.aqi).toLowerCase()
-      if (status === "good") return activeFilters.good
-      if (status === "moderate") return activeFilters.moderate
-      if (status === "unhealthy") return activeFilters.unhealthy
-      return activeFilters.hazardous
+      const status = getAQIStatus(sensor.aqi).toLowerCase()
+      if (status === "healthy") return filters.healthy
+      if (status === "moderate") return filters.moderate
+      return filters.hazardous // Hazardous
     })
   }
 
   const handleSensorPress = (sensor: any) => {
+    console.log(`🎯 Map: Sensor pressed: ${sensor.name} (${sensor.id})`)
     setSelectedSensor(sensor)
   }
 
   const handleSensorDetailPress = () => {
-    if (selectedSensor) {
+    if (selectedSensor && selectedSensor.id) {
       setSelectedSensor(null)
       router.push(`/sensor/${selectedSensor.id}`)
     }
@@ -72,162 +54,160 @@ export default function MapScreen() {
 
   const renderHeader = () => (
     <View style={styles.header}>
-      <Text style={styles.headerTitle}>Campus Air Quality Map</Text>
-      <View style={styles.headerActions}>
-        <TouchableOpacity style={styles.headerButton} onPress={() => setShowFilters(true)}>
-          <Ionicons name="options-outline" size={24} color="#333" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.headerButton} onPress={refreshDevices}>
-          <Ionicons name="refresh-outline" size={24} color="#333" />
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <Ionicons name="chevron-back" size={24} color="#333" />
+      </TouchableOpacity>
+      <Text style={styles.headerTitle}>Campus Map</Text>
+      <TouchableOpacity style={styles.filterButton} onPress={() => setModalVisible(true)}>
+        <Ionicons name="options-outline" size={24} color="#333" />
+      </TouchableOpacity>
     </View>
   )
 
-  const renderLegend = () => (
-    <View style={styles.legend}>
-      <View style={styles.legendItem}>
-        <View style={[styles.legendDot, { backgroundColor: "#4CAF50" }]} />
-        <Text style={styles.legendText}>Good (0-50)</Text>
-      </View>
-      <View style={styles.legendItem}>
-        <View style={[styles.legendDot, { backgroundColor: "#FF9800" }]} />
-        <Text style={styles.legendText}>Moderate (51-100)</Text>
-      </View>
-      <View style={styles.legendItem}>
-        <View style={[styles.legendDot, { backgroundColor: "#F44336" }]} />
-        <Text style={styles.legendText}>Unhealthy (101-150)</Text>
-      </View>
-    </View>
-  )
+  const renderMapContent = () => {
+    if (loading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4361EE" />
+          <Text style={styles.loadingText}>Loading sensors...</Text>
+        </View>
+      )
+    }
 
-  const renderSensorInfo = () => {
-    if (!selectedSensor) return null
+    if (error) {
+      return (
+        <View style={styles.errorContainer}>
+          <Ionicons name="warning-outline" size={48} color="#F44336" />
+          <Text style={styles.errorText}>Failed to load sensors</Text>
+          <Text style={styles.errorSubtext}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={refreshDevices}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      )
+    }
+
+    const filteredSensors = getFilteredSensors()
+
+    if (filteredSensors.length === 0) {
+      return (
+        <View style={styles.errorContainer}>
+          <Ionicons name="location-outline" size={48} color="#ccc" />
+          <Text style={styles.errorText}>No sensors to display</Text>
+          <Text style={styles.errorSubtext}>Try adjusting your filters</Text>
+        </View>
+      )
+    }
 
     return (
-      <View style={styles.sensorInfo}>
-        <View style={styles.sensorInfoHeader}>
-          <View style={styles.sensorInfoTitle}>
-            <Text style={styles.sensorInfoName}>{selectedSensor.name}</Text>
-            <Text style={styles.sensorInfoLocation}>{selectedSensor.location}</Text>
-          </View>
-          <TouchableOpacity onPress={() => setSelectedSensor(null)}>
-            <Ionicons name="close" size={24} color="#666" />
-          </TouchableOpacity>
-        </View>
-        <View style={styles.sensorInfoContent}>
-          <View style={styles.aqiDisplay}>
-            <Text style={[styles.aqiNumber, { color: getAQIColor(selectedSensor.aqi) }]}>{selectedSensor.aqi}</Text>
-            <Text style={styles.aqiLabel}>AQI</Text>
-            <Text style={[styles.aqiStatus, { color: getAQIColor(selectedSensor.aqi) }]}>
-              {getStatusText(selectedSensor.aqi)}
-            </Text>
-          </View>
-          <TouchableOpacity style={styles.detailsButton} onPress={handleSensorDetailPress}>
-            <Text style={styles.detailsButtonText}>View Details</Text>
-            <Ionicons name="chevron-forward" size={16} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
-      </View>
+      <MapboxMap
+        sensors={filteredSensors}
+        onSensorPress={handleSensorPress}
+        style={styles.map}
+        interactive={true}
+        showUserLocation={true}
+      />
     )
   }
 
+  const renderLegend = () => (
+    <View style={styles.legend}>
+      {SIMPLE_AQI_CATEGORIES.map((category, index) => (
+        <View key={index} style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: category.color }]} />
+          <Text style={styles.legendText}>
+            {category.name} ({category.range})
+          </Text>
+        </View>
+      ))}
+    </View>
+  )
+
   const renderFiltersModal = () => (
-    <Modal visible={showFilters} animationType="slide" transparent={true}>
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={modalVisible}
+      onRequestClose={() => setModalVisible(false)}
+    >
       <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
+        <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Filter Sensors</Text>
-            <TouchableOpacity onPress={() => setShowFilters(false)}>
-              <Ionicons name="close" size={24} color="#333" />
+            <Text style={styles.modalTitle}>Filter Air Quality</Text>
+            <TouchableOpacity onPress={() => setModalVisible(false)}>
+              <Ionicons name="close" size={24} color="#555" />
             </TouchableOpacity>
           </View>
           <ScrollView style={styles.modalBody}>
             <Text style={styles.filterSectionTitle}>Air Quality Levels</Text>
-            {Object.entries(activeFilters).map(([key, value]) => (
+            {SIMPLE_AQI_CATEGORIES.map((category, index) => (
               <TouchableOpacity
-                key={key}
+                key={index}
                 style={styles.filterItem}
-                onPress={() => setActiveFilters({ ...activeFilters, [key]: !value })}
+                onPress={() => setFilters({ ...filters, [category.filter]: !filters[category.filter] })}
               >
                 <View style={styles.filterLeft}>
-                  <View
-                    style={[
-                      styles.filterDot,
-                      {
-                        backgroundColor:
-                          key === "good"
-                            ? "#4CAF50"
-                            : key === "moderate"
-                              ? "#FF9800"
-                              : key === "unhealthy"
-                                ? "#F44336"
-                                : "#9C27B0",
-                      },
-                    ]}
-                  />
-                  <Text style={styles.filterText}>{key.charAt(0).toUpperCase() + key.slice(1)}</Text>
+                  <View style={[styles.filterDot, { backgroundColor: category.color }]} />
+                  <Text style={styles.filterText}>
+                    {category.name} ({category.range} AQI)
+                  </Text>
                 </View>
-                <View style={[styles.checkbox, value && styles.checkboxActive]}>
-                  {value && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
+                <View style={[styles.checkbox, filters[category.filter] && styles.checkboxActive]}>
+                  {filters[category.filter] && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
                 </View>
               </TouchableOpacity>
             ))}
           </ScrollView>
-          <View style={styles.modalFooter}>
-            <TouchableOpacity style={styles.applyButton} onPress={() => setShowFilters(false)}>
-              <Text style={styles.applyButtonText}>Apply Filters</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity style={styles.modalFooter} onPress={() => setModalVisible(false)}>
+            <Text style={styles.modalFooterText}>Apply Filters</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </Modal>
   )
 
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="dark-content" />
-        {renderHeader()}
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4361EE" />
-          <Text style={styles.loadingText}>Loading map data...</Text>
-        </View>
-      </SafeAreaView>
-    )
-  }
-
-  if (error) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="dark-content" />
-        {renderHeader()}
-        <View style={styles.errorContainer}>
-          <Ionicons name="warning-outline" size={48} color="#F44336" />
-          <Text style={styles.errorText}>Failed to load map data</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={refreshDevices}>
-            <Text style={styles.retryButtonText}>Retry</Text>
+  const renderSensorInfoModal = () => (
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={!!selectedSensor}
+      onRequestClose={() => setSelectedSensor(null)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.sensorInfoContainer}>
+          <TouchableOpacity style={styles.closeButton} onPress={() => setSelectedSensor(null)}>
+            <Ionicons name="close" size={24} color="#555" />
           </TouchableOpacity>
+
+          {selectedSensor && (
+            <View style={styles.sensorInfoContent}>
+              <Text style={styles.sensorInfoTitle}>{selectedSensor.name}</Text>
+              <Text style={styles.sensorLocation}>{selectedSensor.location}</Text>
+              <Text style={[styles.aqiNumber, { color: getAQIColor(selectedSensor.aqi) }]}>{selectedSensor.aqi}</Text>
+              <Text style={styles.aqiLabel}>AQI</Text>
+              <Text style={[styles.aqiStatus, { color: getAQIColor(selectedSensor.aqi) }]}>
+                {getAQIStatus(selectedSensor.aqi)}
+              </Text>
+              <TouchableOpacity style={styles.detailButton} onPress={handleSensorDetailPress}>
+                <Text style={styles.detailButtonText}>View Details</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
-      </SafeAreaView>
-    )
-  }
+      </View>
+    </Modal>
+  )
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
       {renderHeader()}
-      <View style={styles.content}>
-        <MapboxMap
-          sensors={getFilteredSensors()}
-          onSensorPress={handleSensorPress}
-          showUserLocation={true}
-          style={styles.map}
-        />
-        {renderLegend()}
-        {renderSensorInfo()}
-      </View>
+
+      <View style={styles.mapContainer}>{renderMapContent()}</View>
+
+      {renderLegend()}
       {renderFiltersModal()}
+      {renderSensorInfoModal()}
     </SafeAreaView>
   )
 }
@@ -239,122 +219,29 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: "#E0E0E0",
+  },
+  backButton: {
+    padding: 8,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: "600",
     color: "#333",
   },
-  headerActions: {
-    flexDirection: "row",
-  },
-  headerButton: {
+  filterButton: {
     padding: 8,
-    marginLeft: 8,
   },
-  content: {
+  mapContainer: {
     flex: 1,
   },
   map: {
     flex: 1,
-  },
-  legend: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    backgroundColor: "#F8F9FA",
-    borderTopWidth: 1,
-    borderTopColor: "#E0E0E0",
-  },
-  legendItem: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  legendDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 8,
-  },
-  legendText: {
-    fontSize: 12,
-    color: "#666",
-  },
-  sensorInfo: {
-    position: "absolute",
-    bottom: 100,
-    left: 20,
-    right: 20,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  sensorInfoHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 16,
-  },
-  sensorInfoTitle: {
-    flex: 1,
-  },
-  sensorInfoName: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: 4,
-  },
-  sensorInfoLocation: {
-    fontSize: 14,
-    color: "#666",
-  },
-  sensorInfoContent: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  aqiDisplay: {
-    alignItems: "center",
-  },
-  aqiNumber: {
-    fontSize: 36,
-    fontWeight: "bold",
-  },
-  aqiLabel: {
-    fontSize: 12,
-    color: "#666",
-    marginTop: 2,
-  },
-  aqiStatus: {
-    fontSize: 14,
-    fontWeight: "600",
-    marginTop: 4,
-  },
-  detailsButton: {
-    backgroundColor: "#4361EE",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  detailsButtonText: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "600",
-    marginRight: 8,
   },
   loadingContainer: {
     flex: 1,
@@ -373,9 +260,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   errorText: {
-    fontSize: 16,
+    fontSize: 18,
     color: "#F44336",
     marginTop: 12,
+    textAlign: "center",
+    fontWeight: "600",
+  },
+  errorSubtext: {
+    fontSize: 14,
+    color: "#666",
+    marginTop: 8,
     textAlign: "center",
   },
   retryButton: {
@@ -390,68 +284,92 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
   },
+  legend: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: "#F8F9FA",
+    borderTopWidth: 1,
+    borderTopColor: "#E0E0E0",
+  },
+  legendItem: {
+    flexDirection: "column",
+    alignItems: "center",
+    flex: 1,
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginBottom: 4,
+  },
+  legendText: {
+    fontSize: 10,
+    color: "#666",
+    textAlign: "center",
+    lineHeight: 12,
+  },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "flex-end",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
   },
-  modalContent: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: "70%",
+  modalContainer: {
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    width: "80%",
+    maxHeight: "80%",
+    overflow: "hidden",
   },
   modalHeader: {
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E0E0E0",
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#333",
   },
   modalBody: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    padding: 15,
   },
   filterSectionTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#333",
-    marginBottom: 16,
+    marginBottom: 10,
   },
   filterItem: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
   },
   filterLeft: {
     flexDirection: "row",
     alignItems: "center",
-    flex: 1,
   },
   filterDot: {
     width: 16,
     height: 16,
     borderRadius: 8,
-    marginRight: 12,
+    marginRight: 10,
   },
   filterText: {
     fontSize: 16,
-    color: "#333",
   },
   checkbox: {
     width: 24,
     height: 24,
-    borderRadius: 4,
+    borderRadius: 12,
     borderWidth: 2,
-    borderColor: "#E0E0E0",
+    borderColor: "#ddd",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -460,20 +378,68 @@ const styles = StyleSheet.create({
     borderColor: "#4361EE",
   },
   modalFooter: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderTopColor: "#E0E0E0",
-  },
-  applyButton: {
+    padding: 15,
     backgroundColor: "#4361EE",
-    paddingVertical: 16,
-    borderRadius: 12,
     alignItems: "center",
   },
-  applyButtonText: {
+  modalFooterText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  sensorInfoContainer: {
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    width: "80%",
+    padding: 20,
+    alignItems: "center",
+  },
+  sensorInfoContent: {
+    alignItems: "center",
+    width: "100%",
+  },
+  sensorInfoTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 4,
+    textAlign: "center",
+  },
+  sensorLocation: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  aqiNumber: {
+    fontSize: 48,
+    fontWeight: "bold",
+    marginBottom: 4,
+  },
+  aqiLabel: {
+    fontSize: 16,
+    color: "#555",
+    marginBottom: 4,
+  },
+  aqiStatus: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginBottom: 20,
+  },
+  detailButton: {
+    backgroundColor: "#4361EE",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  detailButtonText: {
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "600",
+  },
+  closeButton: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    zIndex: 1,
   },
 })

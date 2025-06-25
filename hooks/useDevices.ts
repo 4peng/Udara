@@ -62,12 +62,13 @@ export const useDevices = () => {
           })
           .map((device: any) => ({
             ...device,
-            isMonitored: device.isMonitored || false, // Ensure boolean
+            isMonitored: false, // Will be updated later by monitoring hook
             lastUpdated: device.lastUpdated || new Date().toISOString(),
           }))
 
         setDevices(validDevices)
         setError(null)
+
         console.log("Successfully set devices:", validDevices.length, "valid devices")
       } else {
         console.error("Invalid API response structure:", data)
@@ -97,12 +98,21 @@ export const useDevices = () => {
     )
   }
 
-  const getMonitoredDevices = () => {
-    return devices.filter((device) => device.isMonitored)
+  const updateDeviceMonitoringStatus = (monitoredDeviceIds: string[]) => {
+    setDevices((prevDevices) =>
+      prevDevices.map((device) => ({
+        ...device,
+        isMonitored: monitoredDeviceIds.includes(device.deviceId),
+      })),
+    )
   }
 
   const getDeviceById = (deviceId: string) => {
     return devices.find((device) => device.id === deviceId)
+  }
+
+  const getDevicesByLocation = (location: string) => {
+    return devices.filter((device) => device.location === location)
   }
 
   useEffect(() => {
@@ -116,7 +126,8 @@ export const useDevices = () => {
     error,
     refreshDevices,
     toggleDeviceMonitoring,
-    getMonitoredDevices,
+    updateDeviceMonitoringStatus,
     getDeviceById,
+    getDevicesByLocation,
   }
 }

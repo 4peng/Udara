@@ -2,7 +2,7 @@
 
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   __DEV__,
   ActivityIndicator,
@@ -16,7 +16,8 @@ import {
   View,
 } from "react-native"
 import MapboxMap from "../../components/MapboxMap"
-import { useDevices } from "../../hooks/useDevices"
+import { useDevicesWithMonitoring } from "../../hooks/useDevicesWithMonitoring"
+import { getAQIColor, getAQIStatus, SIMPLE_AQI_CATEGORIES } from "../../utils/aqiUtils"
 
 const { width } = Dimensions.get("window")
 
@@ -26,7 +27,18 @@ const DEBUG_MODE = __DEV__
 export default function HomeScreen() {
   const [currentDate, setCurrentDate] = useState("")
   const [showDebugInfo, setShowDebugInfo] = useState(false)
-  const { devices, loading, error, refreshDevices, getMonitoredDevices } = useDevices()
+
+  const {
+    devices,
+    loading,
+    error,
+    refreshDevices,
+    monitoredDevices,
+    getMonitoredDeviceIds,
+    monitoringSummary,
+    initialized,
+    monitoringVersion,
+  } = useDevicesWithMonitoring()
 
   useEffect(() => {
     const date = new Date()
@@ -41,39 +53,33 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (DEBUG_MODE) {
-      console.log("🏠 HomeScreen: Component mounted")
-      console.log("📊 HomeScreen: Devices state:", {
-        count: devices.length,
+      console.log("🏠 HomeScreen: Component re-rendered")
+      console.log("📊 HomeScreen: State:", {
+        devicesCount: devices.length,
+        monitoredDevicesCount: monitoredDevices.length,
         loading,
         error,
-        devices: devices.map((d) => ({ id: d.id, name: d.name, aqi: d.aqi })),
+        initialized,
+        monitoringVersion,
+        monitoredDeviceIds: getMonitoredDeviceIds(),
       })
     }
-  }, [devices, loading, error])
+  }, [devices, monitoredDevices, loading, error, initialized, monitoringVersion, getMonitoredDeviceIds])
 
   // Add safety check for devices
   const safeDevices = Array.isArray(devices) ? devices : []
-
-  const getAQIColor = (aqi: number) => {
-    if (aqi <= 50) return "#4CAF50" // Good - Green
-    if (aqi <= 100) return "#FF9800" // Moderate - Orange
-    if (aqi <= 150) return "#F44336" // Unhealthy - Red
-    return "#9C27B0" // Very Unhealthy - Purple
-  }
-
-  const getStatusText = (aqi: number) => {
-    if (aqi <= 50) return "Good"
-    if (aqi <= 100) return "Moderate"
-    if (aqi <= 150) return "Unhealthy"
-    return "Very Unhealthy"
-  }
+  const safeMonitoredDevices = Array.isArray(monitoredDevices) ? monitoredDevices : []
 
   const getOverallAQI = () => {
-    const monitoredDevices = getMonitoredDevices()
-    if (monitoredDevices.length === 0) return 42 // Default fallback
+    if (safeMonitoredDevices.length === 0) {
+      // If no devices are monitored, show average of all devices
+      if (safeDevices.length === 0) return 42 // Default fallback
+      const totalAQI = safeDevices.reduce((sum, device) => sum + (device.aqi || 0), 0)
+      return Math.round(totalAQI / safeDevices.length)
+    }
 
-    const totalAQI = monitoredDevices.reduce((sum, device) => sum + (device.aqi || 0), 0)
-    return Math.round(totalAQI / monitoredDevices.length)
+    const totalAQI = safeMonitoredDevices.reduce((sum, device) => sum + (device.aqi || 0), 0)
+    return Math.round(totalAQI / safeMonitoredDevices.length)
   }
 
   const handleMapPress = () => {
@@ -103,7 +109,7 @@ export default function HomeScreen() {
   const renderAQICircle = () => {
     const currentAQI = getOverallAQI()
     const color = getAQIColor(currentAQI)
-    const status = getStatusText(currentAQI)
+    const status = getAQIStatus(currentAQI)
 
     return (
       <View style={styles.aqiContainer}>
@@ -111,6 +117,11 @@ export default function HomeScreen() {
           <Text style={[styles.aqiNumber, { color }]}>{currentAQI}</Text>
           <Text style={[styles.aqiStatus, { color }]}>{status}</Text>
         </View>
+        <Text style={styles.aqiDescription}>
+          {safeMonitoredDevices.length > 0
+            ? `Based on ${safeMonitoredDevices.length} monitored sensor${safeMonitoredDevices.length !== 1 ? "s" : ""}`
+            : `Based on all ${safeDevices.length} sensors`}
+        </Text>
       </View>
     )
   }
@@ -158,25 +169,41 @@ export default function HomeScreen() {
       )
     }
 
-    if (safeDevices.length === 0) {
+    // Use monitored devices for home screen map, or all devices if none monitored
+    const mapSensors = safeMonitoredDevices.length > 0 ? safeMonitoredDevices : safeDevices
+
+    if (mapSensors.length === 0) {
       return (
         <View style={[styles.mapSection, styles.errorContainer]}>
           <Ionicons name="location-outline" size={48} color="#ccc" />
-          <Text style={styles.errorText}>No sensors available</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
-            <Text style={styles.retryButtonText}>Refresh</Text>
+          <Text style={styles.errorText}>No sensors to display</Text>
+          <Text style={styles.errorSubtext}>
+            {safeDevices.length === 0 ? "No sensors available" : "No areas being monitored"}
+          </Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => router.push("/(tabs)/settings")}>
+            <Text style={styles.retryButtonText}>{safeDevices.length === 0 ? "Refresh" : "Select Areas"}</Text>
           </TouchableOpacity>
         </View>
       )
     }
 
-    console.log(`🗺️ HomeScreen: Rendering map with ${safeDevices.length} sensors`)
+    console.log(
+      `🗺️ HomeScreen: Rendering map with ${mapSensors.length} sensors (${safeMonitoredDevices.length > 0 ? "monitored only" : "all sensors"})`,
+    )
 
     return (
       <View style={styles.mapSection}>
+        <View style={styles.mapHeader}>
+          <Text style={styles.mapTitle}>
+            {safeMonitoredDevices.length > 0 ? "Monitored Areas" : "All Campus Sensors"}
+          </Text>
+          <Text style={styles.mapSubtitle}>
+            {mapSensors.length} sensor{mapSensors.length !== 1 ? "s" : ""} shown
+          </Text>
+        </View>
         <TouchableOpacity style={styles.mapContainer} onPress={handleMapPress}>
           <MapboxMap
-            sensors={safeDevices}
+            sensors={mapSensors}
             onSensorPress={handleSensorPress}
             style={styles.mapView}
             interactive={false}
@@ -189,45 +216,12 @@ export default function HomeScreen() {
           </View>
         </TouchableOpacity>
         <View style={styles.mapLegend}>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: "#4CAF50" }]} />
-            <Text style={styles.legendText}>Good (0-50)</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: "#FF9800" }]} />
-            <Text style={styles.legendText}>Moderate (51-100)</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: "#F44336" }]} />
-            <Text style={styles.legendText}>Unhealthy (101-150)</Text>
-          </View>
-        </View>
-      </View>
-    )
-  }
-
-  const renderKeyLocations = () => {
-    const monitoredDevices = safeDevices.filter((device) => device.isMonitored)
-    const topLocations = monitoredDevices.slice(0, 2)
-
-    if (topLocations.length === 0) {
-      return null
-    }
-
-    return (
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Key Locations</Text>
-        <View style={styles.keyLocationsContainer}>
-          {topLocations.map((device, index) => (
-            <View key={device.id} style={styles.keyLocationItem}>
-              <View style={styles.locationInfo}>
-                <Ionicons name="location-outline" size={20} color="#666" />
-                <View style={styles.locationDetails}>
-                  <Text style={styles.locationName}>{device.location}</Text>
-                  <Text style={styles.locationAQI}>{device.aqi}</Text>
-                </View>
-              </View>
-              <Ionicons name="trending-up" size={20} color={getAQIColor(device.aqi)} />
+          {SIMPLE_AQI_CATEGORIES.map((category, index) => (
+            <View key={index} style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: category.color }]} />
+              <Text style={styles.legendText}>
+                {category.name} ({category.range})
+              </Text>
             </View>
           ))}
         </View>
@@ -235,54 +229,85 @@ export default function HomeScreen() {
     )
   }
 
-  const renderMonitoredSensors = () => {
-    const monitoredDevices = getMonitoredDevices()
+  // Memoize the location groups to prevent unnecessary recalculations
+  const locationGroups = useMemo(() => {
+    const groups: { [key: string]: any[] } = {}
+    safeMonitoredDevices.forEach((device) => {
+      const location = device.location
+      if (!groups[location]) {
+        groups[location] = []
+      }
+      groups[location].push(device)
+    })
+    return groups
+  }, [safeMonitoredDevices])
 
+  const renderMonitoredAreas = () => {
     if (loading) {
       return (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Monitored Sensors</Text>
+          <Text style={styles.sectionTitle}>Monitored Areas</Text>
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="small" color="#4361EE" />
-            <Text style={styles.loadingText}>Loading sensors...</Text>
+            <Text style={styles.loadingText}>Loading monitored areas...</Text>
           </View>
         </View>
       )
     }
 
-    if (monitoredDevices.length === 0) {
+    if (safeMonitoredDevices.length === 0) {
       return (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Monitored Sensors</Text>
+          <Text style={styles.sectionTitle}>Monitored Areas</Text>
           <View style={styles.emptyState}>
             <Ionicons name="location-outline" size={48} color="#ccc" />
-            <Text style={styles.emptyStateText}>No sensors being monitored</Text>
+            <Text style={styles.emptyStateText}>No areas being monitored</Text>
             <Text style={styles.emptyStateSubtext}>Go to Settings to select areas to monitor</Text>
+            <TouchableOpacity style={styles.settingsButton} onPress={() => router.push("/(tabs)/settings")}>
+              <Text style={styles.settingsButtonText}>Open Settings</Text>
+            </TouchableOpacity>
           </View>
         </View>
       )
     }
+
+    console.log("🏠 HomeScreen: Rendering monitored areas:", Object.keys(locationGroups))
 
     return (
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Monitored Sensors</Text>
-        {monitoredDevices.map((device) => (
-          <TouchableOpacity
-            key={device.id}
-            style={styles.sensorItem}
-            onPress={() => router.push(`/sensor/${device.id}`)}
-          >
-            <View style={styles.sensorInfo}>
-              <View style={[styles.sensorDot, { backgroundColor: getAQIColor(device.aqi) }]} />
-              <View style={styles.sensorDetails}>
-                <Text style={styles.sensorName}>{device.name}</Text>
-                <Text style={styles.sensorLocation}>{device.location}</Text>
-                <Text style={styles.sensorAQI}>AQI: {device.aqi}</Text>
+        <Text style={styles.sectionTitle}>Monitored Areas ({safeMonitoredDevices.length} sensors)</Text>
+        {Object.entries(locationGroups).map(([location, devices]) => {
+          const avgAQI = Math.round(devices.reduce((sum, device) => sum + device.aqi, 0) / devices.length)
+          const color = getAQIColor(avgAQI)
+
+          return (
+            <TouchableOpacity
+              key={location}
+              style={styles.areaItem}
+              onPress={() => {
+                // Navigate to the first device in this location
+                if (devices.length > 0) {
+                  router.push(`/sensor/${devices[0].id}`)
+                }
+              }}
+            >
+              <View style={styles.areaInfo}>
+                <View style={[styles.areaDot, { backgroundColor: color }]} />
+                <View style={styles.areaDetails}>
+                  <Text style={styles.areaName}>{location}</Text>
+                  <Text style={styles.areaDeviceCount}>
+                    {devices.length} sensor{devices.length !== 1 ? "s" : ""} • Monitoring active
+                  </Text>
+                </View>
               </View>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#ccc" />
-          </TouchableOpacity>
-        ))}
+              <View style={styles.areaAQI}>
+                <Text style={[styles.aqiValue, { color }]}>{avgAQI}</Text>
+                <Text style={styles.aqiLabel}>AQI</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#ccc" />
+            </TouchableOpacity>
+          )
+        })}
       </View>
     )
   }
@@ -316,10 +341,14 @@ export default function HomeScreen() {
       {DEBUG_MODE && showDebugInfo && (
         <View style={styles.debugContainer}>
           <Text style={styles.debugTitle}>🐛 Debug Information</Text>
-          <Text style={styles.debugText}>Devices: {safeDevices.length}</Text>
+          <Text style={styles.debugText}>Total Devices: {safeDevices.length}</Text>
+          <Text style={styles.debugText}>Monitored Devices: {safeMonitoredDevices.length}</Text>
           <Text style={styles.debugText}>Loading: {loading ? "Yes" : "No"}</Text>
+          <Text style={styles.debugText}>Initialized: {initialized ? "Yes" : "No"}</Text>
+          <Text style={styles.debugText}>Monitoring Version: {monitoringVersion}</Text>
           <Text style={styles.debugText}>Error: {error || "None"}</Text>
-          <Text style={styles.debugText}>Monitored: {getMonitoredDevices().length}</Text>
+          <Text style={styles.debugText}>Monitored IDs: {getMonitoredDeviceIds().join(", ")}</Text>
+          <Text style={styles.debugText}>Location Groups: {Object.keys(locationGroups).join(", ")}</Text>
         </View>
       )}
 
@@ -333,11 +362,8 @@ export default function HomeScreen() {
         {/* Map Section */}
         {renderMapSection()}
 
-        {/* Key Locations */}
-        {renderKeyLocations()}
-
-        {/* Monitored Sensors */}
-        {renderMonitoredSensors()}
+        {/* Monitored Areas */}
+        {renderMonitoredAreas()}
       </ScrollView>
     </SafeAreaView>
   )
@@ -417,6 +443,12 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginTop: 4,
   },
+  aqiDescription: {
+    fontSize: 14,
+    color: "#666",
+    marginTop: 12,
+    textAlign: "center",
+  },
   environmentalData: {
     flexDirection: "row",
     justifyContent: "space-around",
@@ -444,6 +476,19 @@ const styles = StyleSheet.create({
   mapSection: {
     marginHorizontal: 20,
     marginBottom: 20,
+  },
+  mapHeader: {
+    marginBottom: 12,
+  },
+  mapTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+  },
+  mapSubtitle: {
+    fontSize: 14,
+    color: "#666",
+    marginTop: 2,
   },
   mapContainer: {
     height: 200,
@@ -480,25 +525,29 @@ const styles = StyleSheet.create({
   },
   mapLegend: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    paddingVertical: 12,
+    justifyContent: "space-between",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     backgroundColor: "#F8F9FA",
     borderRadius: 8,
     marginTop: 8,
   },
   legendItem: {
-    flexDirection: "row",
+    flexDirection: "column",
     alignItems: "center",
+    flex: 1,
   },
   legendDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    marginRight: 6,
+    marginBottom: 4,
   },
   legendText: {
-    fontSize: 12,
+    fontSize: 10,
     color: "#666",
+    textAlign: "center",
+    lineHeight: 12,
   },
   section: {
     marginHorizontal: 20,
@@ -510,73 +559,49 @@ const styles = StyleSheet.create({
     color: "#333",
     marginBottom: 16,
   },
-  keyLocationsContainer: {
+  areaItem: {
     flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  keyLocationItem: {
-    flex: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "#F8F9FA",
-    padding: 16,
-    borderRadius: 12,
-    marginHorizontal: 4,
-  },
-  locationInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  locationDetails: {
-    marginLeft: 8,
-  },
-  locationName: {
-    fontSize: 14,
-    color: "#666",
-  },
-  locationAQI: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  sensorItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
     paddingVertical: 16,
     paddingHorizontal: 4,
     borderBottomWidth: 1,
     borderBottomColor: "#F0F0F0",
   },
-  sensorInfo: {
+  areaInfo: {
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
   },
-  sensorDot: {
+  areaDot: {
     width: 12,
     height: 12,
     borderRadius: 6,
     marginRight: 12,
   },
-  sensorDetails: {
+  areaDetails: {
     flex: 1,
   },
-  sensorName: {
+  areaName: {
     fontSize: 16,
     fontWeight: "500",
     color: "#333",
   },
-  sensorLocation: {
+  areaDeviceCount: {
     fontSize: 14,
     color: "#666",
     marginTop: 2,
   },
-  sensorAQI: {
-    fontSize: 14,
+  areaAQI: {
+    alignItems: "center",
+    marginRight: 12,
+  },
+  aqiValue: {
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  aqiLabel: {
+    fontSize: 12,
     color: "#666",
-    marginTop: 2,
   },
   loadingContainer: {
     alignItems: "center",
@@ -630,5 +655,17 @@ const styles = StyleSheet.create({
     color: "#999",
     marginTop: 4,
     textAlign: "center",
+  },
+  settingsButton: {
+    backgroundColor: "#4361EE",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  settingsButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
   },
 })

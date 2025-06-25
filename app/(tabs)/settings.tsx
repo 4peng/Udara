@@ -4,65 +4,26 @@ import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
 import { useState } from "react"
 import {
-    Alert,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Switch,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native"
 import { useAuth } from "../../hooks/useAuth"
-
-const monitoringAreas = [
-  { id: 1, name: "Main Campus Square", enabled: true },
-  { id: 2, name: "Library Zone", enabled: false },
-  { id: 3, name: "Sports Complex", enabled: false },
-  { id: 4, name: "Student Center", enabled: false },
-  { id: 5, name: "Research Buildings", enabled: false },
-  { id: 6, name: "Dormitory Area", enabled: false },
-]
-
-const thresholdSettings = [
-  {
-    id: "healthy",
-    title: "Healthy AQI Threshold",
-    value: 25,
-    default: 50,
-    backgroundColor: "#E8F5E8",
-    color: "#4CAF50",
-  },
-  {
-    id: "unhealthy",
-    title: "Unhealthy AQI Threshold",
-    value: 100,
-    default: 100,
-    backgroundColor: "#FFF8E1",
-    color: "#FF9800",
-  },
-  {
-    id: "hazardous",
-    title: "Hazardous AQI Threshold",
-    value: 300,
-    default: 300,
-    backgroundColor: "#FFEBEE",
-    color: "#F44336",
-  },
-]
+import { useDevicesWithMonitoring } from "../../hooks/useDevicesWithMonitoring"
 
 export default function SettingsScreen() {
-  const [areas, setAreas] = useState(monitoringAreas)
-  const [thresholds, setThresholds] = useState(thresholdSettings)
   const [pushNotifications, setPushNotifications] = useState(true)
   const [updateFrequency, setUpdateFrequency] = useState("Every 15 minutes")
 
   const { logout, user } = useAuth()
-
-  const toggleArea = (id: number) => {
-    setAreas(areas.map((area) => (area.id === id ? { ...area, enabled: !area.enabled } : area)))
-  }
+  const { monitoringAreas, loading, toggleAreaMonitoring, monitoringSummary } = useDevicesWithMonitoring()
 
   const handleLogout = () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
@@ -95,43 +56,98 @@ export default function SettingsScreen() {
     </View>
   )
 
-  const renderMonitoringAreas = () => (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Monitoring Areas</Text>
-      {areas.map((area) => (
-        <View key={area.id} style={styles.settingItem}>
-          <View style={styles.settingLeft}>
-            <Ionicons name="location-outline" size={20} color="#666" style={styles.locationIcon} />
-            <Text style={styles.settingLabel}>{area.name}</Text>
+  const renderMonitoringSummary = () => {
+    if (loading) {
+      return (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Monitoring Overview</Text>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color="#4361EE" />
+            <Text style={styles.loadingText}>Loading monitoring data...</Text>
           </View>
-          <Switch
-            value={area.enabled}
-            onValueChange={() => toggleArea(area.id)}
-            trackColor={{ false: "#E0E0E0", true: "#4361EE" }}
-            thumbColor="#FFFFFF"
-          />
         </View>
-      ))}
-    </View>
-  )
+      )
+    }
 
-  const renderCustomAlertSettings = () => (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Custom Alert Settings</Text>
-      {thresholds.map((threshold) => (
-        <View key={threshold.id} style={[styles.thresholdCard, { backgroundColor: threshold.backgroundColor }]}>
-          <View style={styles.thresholdHeader}>
-            <Text style={styles.thresholdTitle}>{threshold.title}</Text>
-            <Text style={[styles.thresholdValue, { color: threshold.color }]}>{threshold.value}</Text>
+    return (
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Monitoring Overview</Text>
+        <View style={styles.summaryContainer}>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryNumber}>{monitoringSummary.monitoredAreas}</Text>
+            <Text style={styles.summaryLabel}>Areas Monitored</Text>
           </View>
-          <Text style={styles.thresholdDefault}>Default: {threshold.default}</Text>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryNumber}>{monitoringSummary.monitoredDevices}</Text>
+            <Text style={styles.summaryLabel}>Sensors Active</Text>
+          </View>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryNumber}>{monitoringSummary.totalAreas}</Text>
+            <Text style={styles.summaryLabel}>Total Areas</Text>
+          </View>
         </View>
-      ))}
-    </View>
-  )
+      </View>
+    )
+  }
+
+  const renderMonitoringAreas = () => {
+    if (loading) {
+      return (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Monitoring Areas</Text>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color="#4361EE" />
+            <Text style={styles.loadingText}>Loading areas...</Text>
+          </View>
+        </View>
+      )
+    }
+
+    if (monitoringAreas.length === 0) {
+      return (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Monitoring Areas</Text>
+          <View style={styles.emptyState}>
+            <Ionicons name="location-outline" size={48} color="#ccc" />
+            <Text style={styles.emptyStateText}>No areas available</Text>
+            <Text style={styles.emptyStateSubtext}>Check your connection and try refreshing</Text>
+          </View>
+        </View>
+      )
+    }
+
+    return (
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Monitoring Areas</Text>
+        <Text style={styles.sectionDescription}>Select areas to monitor for air quality alerts and notifications</Text>
+        {monitoringAreas.map((area) => (
+          <View key={area.location} style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <Ionicons name="location-outline" size={20} color="#666" style={styles.locationIcon} />
+              <View style={styles.areaInfo}>
+                <Text style={styles.settingLabel}>{area.location}</Text>
+                <Text style={styles.deviceCount}>
+                  {area.deviceCount} sensor{area.deviceCount !== 1 ? "s" : ""}
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={area.enabled}
+              onValueChange={() => toggleAreaMonitoring(area.location)}
+              trackColor={{ false: "#E0E0E0", true: "#4361EE" }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+        ))}
+      </View>
+    )
+  }
 
   const renderNotificationSettings = () => (
     <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Notification Settings</Text>
       <View style={styles.settingItem}>
         <View style={styles.settingLeft}>
           <Ionicons name="notifications-outline" size={20} color="#666" style={styles.settingIcon} />
@@ -152,6 +168,17 @@ export default function SettingsScreen() {
         </View>
         <View style={styles.settingRight}>
           <Text style={styles.settingValue}>{updateFrequency}</Text>
+          <Ionicons name="chevron-forward" size={20} color="#ccc" />
+        </View>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.settingItem}>
+        <View style={styles.settingLeft}>
+          <Ionicons name="warning-outline" size={20} color="#666" style={styles.settingIcon} />
+          <Text style={styles.settingLabel}>Alert Thresholds</Text>
+        </View>
+        <View style={styles.settingRight}>
+          <Text style={styles.settingValue}>Custom</Text>
           <Ionicons name="chevron-forward" size={20} color="#ccc" />
         </View>
       </TouchableOpacity>
@@ -182,8 +209,8 @@ export default function SettingsScreen() {
       <StatusBar barStyle="dark-content" />
       {renderHeader()}
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {renderMonitoringSummary()}
         {renderMonitoringAreas()}
-        {renderCustomAlertSettings()}
         {renderNotificationSettings()}
         {renderAccountSection()}
       </ScrollView>
@@ -231,13 +258,47 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#333",
+    marginBottom: 8,
+  },
+  sectionDescription: {
+    fontSize: 14,
+    color: "#666",
     marginBottom: 16,
+    lineHeight: 20,
+  },
+  summaryContainer: {
+    flexDirection: "row",
+    backgroundColor: "#F8F9FA",
+    borderRadius: 12,
+    padding: 16,
+  },
+  summaryItem: {
+    flex: 1,
+    alignItems: "center",
+  },
+  summaryNumber: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#4361EE",
+  },
+  summaryLabel: {
+    fontSize: 12,
+    color: "#666",
+    marginTop: 4,
+    textAlign: "center",
+  },
+  summaryDivider: {
+    width: 1,
+    backgroundColor: "#E0E0E0",
+    marginHorizontal: 16,
   },
   settingItem: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F0F0",
   },
   settingLeft: {
     flexDirection: "row",
@@ -264,29 +325,13 @@ const styles = StyleSheet.create({
   locationIcon: {
     marginRight: 12,
   },
-  thresholdCard: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+  areaInfo: {
+    flex: 1,
   },
-  thresholdHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 4,
-  },
-  thresholdTitle: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#333",
-  },
-  thresholdValue: {
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  thresholdDefault: {
-    fontSize: 14,
+  deviceCount: {
+    fontSize: 12,
     color: "#666",
+    marginTop: 2,
   },
   userInfo: {
     flexDirection: "row",
@@ -330,5 +375,31 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#F44336",
     fontWeight: "500",
+  },
+  loadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 20,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: "#666",
+    marginLeft: 8,
+  },
+  emptyState: {
+    alignItems: "center",
+    paddingVertical: 40,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#666",
+    marginTop: 12,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: "#999",
+    marginTop: 4,
+    textAlign: "center",
   },
 })

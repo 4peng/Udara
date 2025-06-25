@@ -6,6 +6,7 @@ import { Link, router } from "expo-router"
 import { useEffect, useState } from "react"
 import {
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -104,7 +105,11 @@ export default function LoginScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboardAvoidView}>
         <View style={styles.logoContainer}>
           <View style={styles.logoBox}>
-            <Ionicons name="leaf-outline" size={30} color="#FFFFFF" />
+            <Image 
+              source={require('../../assets/logo.png')} 
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
           <Text style={styles.appName}>Udara</Text>
         </View>
@@ -224,6 +229,12 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     marginTop: 10,
+  },
+  logoImage: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    borderRadius: 12
   },
   tabContainer: {
     flexDirection: "row",

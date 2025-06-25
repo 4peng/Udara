@@ -3,8 +3,9 @@
 import { Ionicons } from "@expo/vector-icons"
 import { useState } from "react"
 import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native"
+import { getAQIColor, getAQIStatus } from "../../utils/aqiUtils"
 
-const alertTypes = ["All", "Hazardous", "Very Unhealthy", "Unhealthy"]
+const alertTypes = ["All", "Hazardous", "Moderate", "Healthy"]
 
 const mockAlerts = [
   {
@@ -12,44 +13,44 @@ const mockAlerts = [
     time: "2:30 PM",
     location: "Engineering Building",
     aqi: 301,
-    level: "Hazardous",
+    level: getAQIStatus(301),
     message: "Air quality levels have reached hazardous levels. Avoid outdoor activities.",
     date: "Today",
-    color: "#F44336",
+    color: getAQIColor(301),
     icon: "warning",
   },
   {
     id: 2,
     time: "11:45 AM",
     location: "Student Center",
-    aqi: 248,
-    level: "Very Unhealthy",
-    message: "Air quality has deteriorated significantly. Limited exposure recommended.",
+    aqi: 180,
+    level: getAQIStatus(180),
+    message: "Air quality is moderate. Sensitive individuals should limit outdoor exposure.",
     date: "Today",
-    color: "#9C27B0",
+    color: getAQIColor(180),
     icon: "warning",
   },
   {
     id: 3,
     time: "4:15 PM",
     location: "Library",
-    aqi: 315,
-    level: "Hazardous",
+    aqi: 250,
+    level: getAQIStatus(250),
     message: "Dangerous air quality levels detected. Indoor activities advised.",
     date: "Yesterday",
-    color: "#F44336",
+    color: getAQIColor(250),
     icon: "warning",
   },
   {
     id: 4,
     time: "2:10 PM",
     location: "Science Building",
-    aqi: 185,
-    level: "Unhealthy",
-    message: "Air quality is unhealthy. Consider reducing outdoor activities.",
+    aqi: 85,
+    level: getAQIStatus(85),
+    message: "Air quality is healthy. Safe for all outdoor activities.",
     date: "Yesterday",
-    color: "#FF9800",
-    icon: "warning",
+    color: getAQIColor(85),
+    icon: "checkmark-circle",
   },
 ]
 
