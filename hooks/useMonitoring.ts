@@ -1,9 +1,13 @@
+// hooks/useMonitoring.ts
 "use client"
 
-import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useCallback, useState } from "react"
+import { MMKV } from "react-native-mmkv"
 
-const MONITORING_AREAS_KEY = "@monitoring_areas"
+// Initialize MMKV storage
+const storage = new MMKV()
+
+const MONITORING_AREAS_KEY = "monitoring_areas"
 
 export interface MonitoringArea {
   location: string
@@ -17,32 +21,32 @@ export const useMonitoring = () => {
   const [loading, setLoading] = useState(true)
   const [initialized, setInitialized] = useState(false)
 
-  // Load monitoring preferences from storage
-  const loadMonitoringPreferences = async () => {
+  // Load monitoring preferences from MMKV
+  const loadMonitoringPreferences = () => {
     try {
-      const stored = await AsyncStorage.getItem(MONITORING_AREAS_KEY)
+      const stored = storage.getString(MONITORING_AREAS_KEY)
       if (stored) {
         const preferences = JSON.parse(stored)
-        console.log("✅ Loaded monitoring preferences:", preferences)
+        console.log("✅ Loaded monitoring preferences from MMKV:", preferences)
         return preferences
       }
     } catch (error) {
-      console.error("❌ Error loading monitoring preferences:", error)
+      console.error("❌ Error loading monitoring preferences from MMKV:", error)
     }
     return {}
   }
 
-  // Save monitoring preferences to storage
-  const saveMonitoringPreferences = async (areas: MonitoringArea[]) => {
+  // Save monitoring preferences to MMKV
+  const saveMonitoringPreferences = (areas: MonitoringArea[]) => {
     try {
       const preferences: { [key: string]: boolean } = {}
       areas.forEach((area) => {
         preferences[area.location] = area.enabled
       })
-      await AsyncStorage.setItem(MONITORING_AREAS_KEY, JSON.stringify(preferences))
-      console.log("💾 Saved monitoring preferences:", preferences)
+      storage.set(MONITORING_AREAS_KEY, JSON.stringify(preferences))
+      console.log("💾 Saved monitoring preferences to MMKV:", preferences)
     } catch (error) {
-      console.error("❌ Error saving monitoring preferences:", error)
+      console.error("❌ Error saving monitoring preferences to MMKV:", error)
     }
   }
 
@@ -52,7 +56,7 @@ export const useMonitoring = () => {
       console.log("🔄 Initializing monitoring areas with", devices.length, "devices")
       setLoading(true)
 
-      // Group devices by location
+      // Group devices by location to get available areas
       const locationGroups: { [key: string]: any[] } = {}
       devices.forEach((device) => {
         const location = device.location || "Unknown Location"
@@ -62,10 +66,11 @@ export const useMonitoring = () => {
         locationGroups[location].push(device)
       })
 
-      // Load existing preferences
-      const preferences = await loadMonitoringPreferences()
+      // Load existing preferences from MMKV (FRESH LOAD EVERY TIME)
+      const preferences = loadMonitoringPreferences()
+      console.log("📋 Fresh MMKV preferences loaded:", preferences)
 
-      // Create monitoring areas
+      // Create monitoring areas from available locations
       const areas: MonitoringArea[] = Object.entries(locationGroups).map(([location, deviceList]) => ({
         location,
         deviceCount: deviceList.length,
@@ -73,17 +78,17 @@ export const useMonitoring = () => {
         devices: deviceList.map((d) => d.deviceId),
       }))
 
-      // Sort by location name
+      // Sort by location name for consistent ordering
       areas.sort((a, b) => a.location.localeCompare(b.location))
 
       setMonitoringAreas(areas)
       setInitialized(true)
-      console.log("✅ Initialized monitoring areas:", areas)
+      console.log("✅ Initialized monitoring areas with fresh MMKV data:", areas)
 
       // Log which areas are currently enabled
       const enabledAreas = areas.filter((area) => area.enabled)
       console.log(
-        "📍 Currently monitored areas:",
+        "📍 Currently monitored areas from MMKV:",
         enabledAreas.map((a) => a.location),
       )
     } catch (error) {
@@ -95,7 +100,7 @@ export const useMonitoring = () => {
 
   // Toggle monitoring for a specific area
   const toggleAreaMonitoring = useCallback(
-    async (location: string) => {
+    (location: string) => {
       console.log(`🔄 Toggling monitoring for: ${location}`)
 
       const updatedAreas = monitoringAreas.map((area) =>
@@ -103,7 +108,7 @@ export const useMonitoring = () => {
       )
 
       setMonitoringAreas(updatedAreas)
-      await saveMonitoringPreferences(updatedAreas)
+      saveMonitoringPreferences(updatedAreas)
 
       const toggledArea = updatedAreas.find((a) => a.location === location)
       console.log(`✅ ${location} monitoring: ${toggledArea?.enabled ? "ENABLED" : "DISABLED"}`)
@@ -111,7 +116,7 @@ export const useMonitoring = () => {
       // Log all currently enabled areas
       const enabledAreas = updatedAreas.filter((area) => area.enabled)
       console.log(
-        "📍 All monitored areas:",
+        "📍 All monitored areas after toggle:",
         enabledAreas.map((a) => a.location),
       )
     },
@@ -165,15 +170,32 @@ export const useMonitoring = () => {
     }
   }, [monitoringAreas, getMonitoredLocations, getMonitoredDeviceIds])
 
+  // Clear all monitoring preferences (useful for debugging)
+  const clearMonitoringPreferences = useCallback(() => {
+    try {
+      storage.delete(MONITORING_AREAS_KEY)
+      console.log("🧹 Cleared all monitoring preferences")
+      
+      // Reset areas to disabled
+      const clearedAreas = monitoringAreas.map(area => ({ ...area, enabled: false }))
+      setMonitoringAreas(clearedAreas)
+    } catch (error) {
+      console.error("❌ Error clearing monitoring preferences:", error)
+    }
+  }, [monitoringAreas])
+
   return {
     monitoringAreas,
     loading,
     initialized,
+    setLoading, // EXPOSE setLoading for force refresh
+    setInitialized, // EXPOSE setInitialized for force refresh
     initializeMonitoringAreas,
     toggleAreaMonitoring,
     getMonitoredLocations,
     getMonitoredDeviceIds,
     isDeviceMonitored,
     getMonitoringSummary,
+    clearMonitoringPreferences, // For debugging
   }
 }

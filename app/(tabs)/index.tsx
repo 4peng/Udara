@@ -1,8 +1,9 @@
+// app/(tabs)/index.tsx
 "use client"
 
 import { Ionicons } from "@expo/vector-icons"
-import { router } from "expo-router"
-import { useEffect, useMemo, useState } from "react"
+import { router, useFocusEffect } from "expo-router"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   __DEV__,
   ActivityIndicator,
@@ -24,9 +25,20 @@ const { width } = Dimensions.get("window")
 // Enable debug mode for development
 const DEBUG_MODE = __DEV__
 
+// Auto-refresh interval: 5 minutes (300,000 milliseconds)
+const AUTO_REFRESH_INTERVAL = 5 * 60 * 1000
+
 export default function HomeScreen() {
   const [currentDate, setCurrentDate] = useState("")
   const [showDebugInfo, setShowDebugInfo] = useState(false)
+  const [lastRefreshTime, setLastRefreshTime] = useState<Date>(new Date())
+  const [timeUntilNextRefresh, setTimeUntilNextRefresh] = useState<number>(AUTO_REFRESH_INTERVAL)
+  const [isAutoRefreshing, setIsAutoRefreshing] = useState(false)
+
+  // Use refs to manage intervals and avoid memory leaks
+  const autoRefreshInterval = useRef<NodeJS.Timeout | null>(null)
+  const countdownInterval = useRef<NodeJS.Timeout | null>(null)
+  const isComponentMounted = useRef(true)
 
   const {
     devices,
@@ -38,19 +50,115 @@ export default function HomeScreen() {
     monitoringSummary,
     initialized,
     monitoringVersion,
+    forceUpdateCounter,
+    forceCompleteReset, // NEW: Complete refresh function
   } = useDevicesWithMonitoring()
 
+  // FORCE REFRESH when returning from Settings
+  useFocusEffect(
+    useCallback(() => {
+      console.log("🔄 Home screen focused - checking if refresh needed...")
+      
+      // Small delay to ensure any navigation state changes are complete
+      const timeoutId = setTimeout(() => {
+        if (isComponentMounted.current) {
+          console.log("🔄 Home screen focus - triggering complete refresh")
+          forceCompleteReset()
+        }
+      }, 100)
+
+      return () => clearTimeout(timeoutId)
+    }, [forceCompleteReset])
+  )
+
+  // Initialize current date
   useEffect(() => {
-    const date = new Date()
-    const options: Intl.DateTimeFormatOptions = {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
+    const updateDate = () => {
+      const date = new Date()
+      const options: Intl.DateTimeFormatOptions = {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }
+      setCurrentDate(date.toLocaleDateString("en-US", options))
     }
-    setCurrentDate(date.toLocaleDateString("en-US", options))
+
+    updateDate()
+    // Update date every minute
+    const dateInterval = setInterval(updateDate, 60000)
+
+    return () => clearInterval(dateInterval)
   }, [])
 
+  // Auto-refresh functionality - FIXED to only run every 5 minutes
+  useEffect(() => {
+    const startAutoRefresh = () => {
+      console.log("🔄 Starting auto-refresh - will refresh every 5 minutes")
+      
+      // Clear existing intervals
+      if (autoRefreshInterval.current) {
+        clearInterval(autoRefreshInterval.current)
+      }
+      if (countdownInterval.current) {
+        clearInterval(countdownInterval.current)
+      }
+
+      // Reset countdown
+      setTimeUntilNextRefresh(AUTO_REFRESH_INTERVAL)
+
+      // Set up auto-refresh interval (every 5 minutes) - NOW USES COMPLETE RESET
+      autoRefreshInterval.current = setInterval(() => {
+        if (!isComponentMounted.current) return
+        
+        console.log("🔄 Auto-refreshing data (5-minute interval) - COMPLETE RESET...")
+        setIsAutoRefreshing(true)
+        forceCompleteReset() // Use complete reset instead of just refreshDevices
+        setLastRefreshTime(new Date())
+        setTimeUntilNextRefresh(AUTO_REFRESH_INTERVAL)
+        
+        // Reset auto-refresh flag after 2 seconds
+        setTimeout(() => {
+          if (isComponentMounted.current) {
+            setIsAutoRefreshing(false)
+          }
+        }, 2000)
+      }, AUTO_REFRESH_INTERVAL)
+
+      // Set up countdown timer (updates every 30 seconds to avoid excessive updates)
+      countdownInterval.current = setInterval(() => {
+        if (!isComponentMounted.current) return
+        
+        setTimeUntilNextRefresh((prev) => {
+          const newTime = Math.max(0, prev - 30000) // Decrease by 30 seconds
+          return newTime <= 0 ? AUTO_REFRESH_INTERVAL : newTime
+        })
+      }, 30000) // Update every 30 seconds instead of every second
+
+      console.log("✅ Auto-refresh intervals started")
+    }
+
+    // Start auto-refresh when component mounts
+    if (isComponentMounted.current) {
+      startAutoRefresh()
+    }
+
+    // Cleanup intervals on unmount
+    return () => {
+      isComponentMounted.current = false
+      if (autoRefreshInterval.current) {
+        clearInterval(autoRefreshInterval.current)
+        autoRefreshInterval.current = null
+      }
+      if (countdownInterval.current) {
+        clearInterval(countdownInterval.current)
+        countdownInterval.current = null
+      }
+      console.log("🧹 Auto-refresh intervals cleared")
+    }
+  }, [forceCompleteReset]) // Changed dependency from refreshDevices to forceCompleteReset
+
+  // Debug logging
   useEffect(() => {
     if (DEBUG_MODE) {
       console.log("🏠 HomeScreen: Component re-rendered")
@@ -61,14 +169,26 @@ export default function HomeScreen() {
         error,
         initialized,
         monitoringVersion,
+        forceUpdateCounter,
         monitoredDeviceIds: getMonitoredDeviceIds(),
+        lastRefresh: lastRefreshTime.toLocaleTimeString(),
+        nextRefreshIn: Math.ceil(timeUntilNextRefresh / 60000) + "min",
       })
     }
-  }, [devices, monitoredDevices, loading, error, initialized, monitoringVersion, getMonitoredDeviceIds])
+  }, [devices, monitoredDevices, loading, error, initialized, monitoringVersion, forceUpdateCounter, getMonitoredDeviceIds, lastRefreshTime, timeUntilNextRefresh])
 
-  // Add safety check for devices
+  // Add safety check for devices - FORCE FRESH CALCULATION
   const safeDevices = Array.isArray(devices) ? devices : []
-  const safeMonitoredDevices = Array.isArray(monitoredDevices) ? monitoredDevices : []
+  const safeMonitoredDevices = useMemo(() => {
+    const monitored = Array.isArray(monitoredDevices) ? monitoredDevices : []
+    console.log("🏠 safeMonitoredDevices recalculated:", {
+      monitoredDevicesLength: monitored.length,
+      monitoredDevices: monitored.map(d => ({ id: d.id, name: d.name, location: d.location })),
+      monitoringVersion,
+      forceUpdateCounter
+    })
+    return monitored
+  }, [monitoredDevices, monitoringVersion, forceUpdateCounter])
 
   const getOverallAQI = () => {
     if (safeMonitoredDevices.length === 0) {
@@ -96,14 +216,70 @@ export default function HomeScreen() {
     }
   }
 
-  const handleRefresh = () => {
-    console.log("🔄 HomeScreen: Refresh requested")
-    refreshDevices()
+  // UPDATED: Manual refresh now uses complete reset
+  const handleManualRefresh = () => {
+    if (loading || isAutoRefreshing) return
+    
+    console.log("🔄 HomeScreen: Manual refresh requested - COMPLETE RESET")
+    setIsAutoRefreshing(true)
+    
+    // Use complete reset instead of just refreshing devices
+    forceCompleteReset()
+    setLastRefreshTime(new Date())
+    setTimeUntilNextRefresh(AUTO_REFRESH_INTERVAL)
+    
+    // Reset the auto-refresh timer to start fresh 5-minute cycle
+    if (autoRefreshInterval.current) {
+      clearInterval(autoRefreshInterval.current)
+      autoRefreshInterval.current = setInterval(() => {
+        if (!isComponentMounted.current) return
+        
+        console.log("🔄 Auto-refreshing data (5-minute interval) - COMPLETE RESET...")
+        setIsAutoRefreshing(true)
+        forceCompleteReset()
+        setLastRefreshTime(new Date())
+        setTimeUntilNextRefresh(AUTO_REFRESH_INTERVAL)
+        setTimeout(() => {
+          if (isComponentMounted.current) {
+            setIsAutoRefreshing(false)
+          }
+        }, 2000)
+      }, AUTO_REFRESH_INTERVAL)
+    }
+
+    // Reset countdown timer
+    if (countdownInterval.current) {
+      clearInterval(countdownInterval.current)
+      countdownInterval.current = setInterval(() => {
+        if (!isComponentMounted.current) return
+        
+        setTimeUntilNextRefresh((prev) => {
+          const newTime = Math.max(0, prev - 30000)
+          return newTime <= 0 ? AUTO_REFRESH_INTERVAL : newTime
+        })
+      }, 30000)
+    }
+
+    // Reset auto-refresh flag after a short delay
+    setTimeout(() => {
+      if (isComponentMounted.current) {
+        setIsAutoRefreshing(false)
+      }
+    }, 2000)
   }
 
   const toggleDebugInfo = () => {
     setShowDebugInfo(!showDebugInfo)
     console.log(`🐛 HomeScreen: Debug info ${!showDebugInfo ? "enabled" : "disabled"}`)
+  }
+
+  const formatTimeUntilRefresh = (timeMs: number): string => {
+    const minutes = Math.floor(timeMs / 60000)
+    const seconds = Math.floor((timeMs % 60000) / 1000)
+    if (minutes > 0) {
+      return `${minutes}m`
+    }
+    return `${seconds}s`
   }
 
   const renderAQICircle = () => {
@@ -141,7 +317,12 @@ export default function HomeScreen() {
       <View style={styles.dataItem}>
         <Ionicons name="time-outline" size={16} color="#666" />
         <Text style={styles.dataLabel}>Updated</Text>
-        <Text style={styles.dataValue}>2m ago</Text>
+        <Text style={styles.dataValue}>
+          {lastRefreshTime.toLocaleTimeString("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+        </Text>
       </View>
     </View>
   )
@@ -162,7 +343,7 @@ export default function HomeScreen() {
           <Ionicons name="warning-outline" size={48} color="#F44336" />
           <Text style={styles.errorText}>Failed to load map data</Text>
           <Text style={styles.errorSubtext}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
+          <TouchableOpacity style={styles.retryButton} onPress={handleManualRefresh}>
             <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
         </View>
@@ -323,8 +504,16 @@ export default function HomeScreen() {
           <Text style={styles.headerDate}>{currentDate}</Text>
         </View>
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.headerButton} onPress={handleRefresh}>
-            <Ionicons name="refresh-outline" size={24} color="#666" />
+          <TouchableOpacity 
+            style={[styles.headerButton, (loading || isAutoRefreshing) && styles.headerButtonDisabled]} 
+            onPress={handleManualRefresh}
+            disabled={loading || isAutoRefreshing}
+          >
+            <Ionicons 
+              name={isAutoRefreshing ? "sync" : "refresh-outline"} 
+              size={24} 
+              color={(loading || isAutoRefreshing) ? "#ccc" : "#666"} 
+            />
           </TouchableOpacity>
           {DEBUG_MODE && (
             <TouchableOpacity style={styles.headerButton} onPress={toggleDebugInfo}>
@@ -337,6 +526,29 @@ export default function HomeScreen() {
         </View>
       </View>
 
+      {/* Auto-refresh status */}
+      <View style={styles.refreshStatus}>
+        <View style={styles.refreshStatusLeft}>
+          <Ionicons 
+            name={isAutoRefreshing ? "sync" : "time-outline"} 
+            size={14} 
+            color={isAutoRefreshing ? "#4361EE" : "#666"} 
+          />
+          <Text style={[styles.refreshStatusText, isAutoRefreshing && styles.refreshStatusTextActive]}>
+            {isAutoRefreshing 
+              ? "Refreshing..." 
+              : `Next auto-refresh in ${formatTimeUntilRefresh(timeUntilNextRefresh)}`
+            }
+          </Text>
+        </View>
+        <Text style={styles.lastRefreshText}>
+          Last updated: {lastRefreshTime.toLocaleTimeString("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+        </Text>
+      </View>
+
       {/* Debug Info */}
       {DEBUG_MODE && showDebugInfo && (
         <View style={styles.debugContainer}>
@@ -344,11 +556,14 @@ export default function HomeScreen() {
           <Text style={styles.debugText}>Total Devices: {safeDevices.length}</Text>
           <Text style={styles.debugText}>Monitored Devices: {safeMonitoredDevices.length}</Text>
           <Text style={styles.debugText}>Loading: {loading ? "Yes" : "No"}</Text>
+          <Text style={styles.debugText}>Auto-refreshing: {isAutoRefreshing ? "Yes" : "No"}</Text>
           <Text style={styles.debugText}>Initialized: {initialized ? "Yes" : "No"}</Text>
           <Text style={styles.debugText}>Monitoring Version: {monitoringVersion}</Text>
+          <Text style={styles.debugText}>Force Counter: {forceUpdateCounter}</Text>
           <Text style={styles.debugText}>Error: {error || "None"}</Text>
           <Text style={styles.debugText}>Monitored IDs: {getMonitoredDeviceIds().join(", ")}</Text>
           <Text style={styles.debugText}>Location Groups: {Object.keys(locationGroups).join(", ")}</Text>
+          <Text style={styles.debugText}>Next Refresh: {formatTimeUntilRefresh(timeUntilNextRefresh)}</Text>
         </View>
       )}
 
@@ -398,6 +613,36 @@ const styles = StyleSheet.create({
   },
   headerButton: {
     marginLeft: 16,
+  },
+  headerButtonDisabled: {
+    opacity: 0.5,
+  },
+  refreshStatus: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    backgroundColor: "#F8F9FA",
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F0F0",
+  },
+  refreshStatusLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  refreshStatusText: {
+    fontSize: 12,
+    color: "#666",
+    marginLeft: 6,
+  },
+  refreshStatusTextActive: {
+    color: "#4361EE",
+    fontWeight: "500",
+  },
+  lastRefreshText: {
+    fontSize: 11,
+    color: "#999",
   },
   debugContainer: {
     backgroundColor: "#FFF3CD",

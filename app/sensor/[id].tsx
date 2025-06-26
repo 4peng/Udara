@@ -2,7 +2,7 @@
 
 import { Ionicons } from "@expo/vector-icons"
 import { router, useLocalSearchParams } from "expo-router"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   ActivityIndicator,
   Dimensions,
@@ -27,11 +27,21 @@ export default function SensorDetailScreen() {
 
   const { device, loading, error, refetch, fetchHistoricalData, chartData } = useDeviceDetail(id as string)
 
+  // Set the screen title dynamically when device data loads
+  useEffect(() => {
+    if (device) {
+      // This will update the tab/screen title
+      router.setParams({ 
+        title: device.name || `Sensor ${id}`,
+        subtitle: device.location 
+      })
+    }
+  }, [device, id])
+
   const getAQIColor = (aqi: number) => {
-    if (aqi <= 50) return "#4CAF50"
-    if (aqi <= 100) return "#FF9800"
-    if (aqi <= 150) return "#F44336"
-    return "#9C27B0"
+    if (aqi <= 100) return "#4CAF50"
+    if (aqi <= 200) return "#FFC107"
+    return "#F44336"
   }
 
   const getAQIStatus = (aqi: number) => {
@@ -62,7 +72,9 @@ export default function SensorDetailScreen() {
         <Ionicons name="chevron-back" size={24} color="#333" />
       </TouchableOpacity>
       <View style={styles.headerCenter}>
-        <Text style={styles.headerTitle}>{device?.name || "Sensor Details"}</Text>
+        <Text style={styles.headerTitle}>
+          {device?.name || `Sensor ${id}`}
+        </Text>
         <Text style={styles.headerSubtitle}>{device?.location}</Text>
       </View>
       <View style={styles.headerActions}>
@@ -288,6 +300,7 @@ export default function SensorDetailScreen() {
   )
 }
 
+// Rest of your styles remain the same...
 const styles = StyleSheet.create({
   container: {
     flex: 1,

@@ -4,51 +4,38 @@ import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
 import { useState } from "react"
 import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"
-import { useDevices } from "../../hooks/useDevices"
+import { useDevicesWithMonitoring } from "../../hooks/useDevicesWithMonitoring"
 import { getAQIColor, getAQIStatus } from "../../utils/aqiUtils"
-
-// Mock data for all sensors
-const allSensors = [
-  { id: 1, name: "Main Library - Floor 1", location: "Library Plaza", aqi: 42, status: "good", isMonitored: true },
-  { id: 2, name: "Student Center - West Wing", location: "Student Center", aqi: 45, status: "good", isMonitored: true },
-  {
-    id: 3,
-    name: "Science Building - Lab Area",
-    location: "Academic Buildings",
-    aqi: 38,
-    status: "good",
-    isMonitored: false,
-  },
-  { id: 4, name: "Sports Complex - Indoor", location: "Sports Complex", aqi: 41, status: "good", isMonitored: false },
-  {
-    id: 5,
-    name: "Engineering Building - Floor 2",
-    location: "Academic Buildings",
-    aqi: 125,
-    status: "unhealthy",
-    isMonitored: false,
-  },
-  {
-    id: 6,
-    name: "Dormitory Area - Common Room",
-    location: "Dormitory Area",
-    aqi: 35,
-    status: "good",
-    isMonitored: false,
-  },
-  { id: 7, name: "Parking Lot - North", location: "Parking Lots", aqi: 78, status: "moderate", isMonitored: false },
-  { id: 8, name: "Cafeteria - Main Hall", location: "Student Center", aqi: 52, status: "moderate", isMonitored: false },
-]
 
 const categories = ["All", "Monitored", "Healthy", "Moderate", "Hazardous"]
 
 export default function SensorsScreen() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("All")
-  const { devices, loading, error, toggleDeviceMonitoring } = useDevices()
+  
+  const { 
+    devices, 
+    loading, 
+    error, 
+    monitoredDevices,
+    getMonitoredDeviceIds,
+    isDeviceMonitored,
+    toggleAreaMonitoring,
+    monitoringAreas,
+    initialized
+  } = useDevicesWithMonitoring()
 
-  const toggleMonitoring = (sensorId: string) => {
-    toggleDeviceMonitoring(sensorId)
+  // Helper function to check if a device is monitored
+  const isDeviceCurrentlyMonitored = (deviceId: string, location: string) => {
+    // Check if the area/location is being monitored
+    const area = monitoringAreas.find(area => area.location === location)
+    return area ? area.enabled : false
+  }
+
+  // Helper function to toggle monitoring for a device's location
+  const toggleDeviceLocationMonitoring = (location: string) => {
+    console.log(`🔄 SensorsScreen: Toggling monitoring for location: ${location}`)
+    toggleAreaMonitoring(location)
   }
 
   const getFilteredSensors = () => {
@@ -66,7 +53,8 @@ export default function SensorsScreen() {
     // Filter by category
     if (selectedCategory !== "All") {
       if (selectedCategory === "Monitored") {
-        filtered = filtered.filter((sensor) => sensor.isMonitored)
+        // Filter to show only monitored devices
+        filtered = filtered.filter((sensor) => isDeviceCurrentlyMonitored(sensor.deviceId, sensor.location))
       } else {
         filtered = filtered.filter((sensor) => getAQIStatus(sensor.aqi) === selectedCategory)
       }
@@ -104,65 +92,105 @@ export default function SensorsScreen() {
     </View>
   )
 
-  const renderCategoryTabs = () => (
-    <View style={styles.categoryContainer}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScrollView}>
-        {categories.map((category) => (
-          <TouchableOpacity
-            key={category}
-            style={[styles.categoryTab, selectedCategory === category && styles.categoryTabActive]}
-            onPress={() => setSelectedCategory(category)}
-          >
-            <Text style={[styles.categoryTabText, selectedCategory === category && styles.categoryTabTextActive]}>
-              {category}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-    </View>
-  )
+  const renderCategoryTabs = () => {
+    // Count monitored devices for the tab
+    const monitoredCount = devices.filter(sensor => 
+      isDeviceCurrentlyMonitored(sensor.deviceId, sensor.location)
+    ).length
 
-  const renderSensorCard = (sensor: any) => (
-    <TouchableOpacity key={sensor.id} style={styles.sensorCard} onPress={() => router.push(`/sensor/${sensor.id}`)}>
-      <View style={styles.sensorCardContent}>
-        <View style={styles.sensorInfo}>
-          <View style={[styles.sensorDot, { backgroundColor: getAQIColor(sensor.aqi) }]} />
-          <View style={styles.sensorDetails}>
-            <Text style={styles.sensorName}>{sensor.name}</Text>
-            <Text style={styles.sensorLocation}>{sensor.location}</Text>
-            <View style={styles.aqiContainer}>
-              <Text style={styles.aqiLabel}>AQI: </Text>
-              <Text style={[styles.aqiValue, { color: getAQIColor(sensor.aqi) }]}>{sensor.aqi}</Text>
-              <Text style={[styles.statusText, { color: getAQIColor(sensor.aqi) }]}>{getAQIStatus(sensor.aqi)}</Text>
+    return (
+      <View style={styles.categoryContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScrollView}>
+          {categories.map((category) => (
+            <TouchableOpacity
+              key={category}
+              style={[styles.categoryTab, selectedCategory === category && styles.categoryTabActive]}
+              onPress={() => setSelectedCategory(category)}
+            >
+              <Text style={[styles.categoryTabText, selectedCategory === category && styles.categoryTabTextActive]}>
+                {category}
+                {category === "Monitored" && monitoredCount > 0 && ` (${monitoredCount})`}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+    )
+  }
+
+  const renderSensorCard = (sensor: any) => {
+    const isMonitored = isDeviceCurrentlyMonitored(sensor.deviceId, sensor.location)
+    
+    return (
+      <TouchableOpacity key={sensor.id} style={styles.sensorCard} onPress={() => router.push(`/sensor/${sensor.id}`)}>
+        <View style={styles.sensorCardContent}>
+          <View style={styles.sensorInfo}>
+            <View style={[styles.sensorDot, { backgroundColor: getAQIColor(sensor.aqi) }]} />
+            <View style={styles.sensorDetails}>
+              <Text style={styles.sensorName}>{sensor.name}</Text>
+              <Text style={styles.sensorLocation}>{sensor.location}</Text>
+              <View style={styles.aqiContainer}>
+                <Text style={styles.aqiLabel}>AQI: </Text>
+                <Text style={[styles.aqiValue, { color: getAQIColor(sensor.aqi) }]}>{sensor.aqi}</Text>
+                <Text style={[styles.statusText, { color: getAQIColor(sensor.aqi) }]}>{getAQIStatus(sensor.aqi)}</Text>
+              </View>
+              {isMonitored && (
+                <View style={styles.monitoringBadge}>
+                  <Ionicons name="eye" size={12} color="#4361EE" />
+                  <Text style={styles.monitoringBadgeText}>Monitored</Text>
+                </View>
+              )}
             </View>
           </View>
+          <View style={styles.sensorActions}>
+            <TouchableOpacity
+              style={[styles.monitorButton, isMonitored && styles.monitorButtonActive]}
+              onPress={() => toggleDeviceLocationMonitoring(sensor.location)}
+            >
+              <Ionicons
+                name={isMonitored ? "eye" : "eye-outline"}
+                size={20}
+                color={isMonitored ? "#4361EE" : "#666"}
+              />
+            </TouchableOpacity>
+            <Ionicons name="chevron-forward" size={20} color="#ccc" />
+          </View>
         </View>
-        <View style={styles.sensorActions}>
-          <TouchableOpacity
-            style={[styles.monitorButton, sensor.isMonitored && styles.monitorButtonActive]}
-            onPress={() => toggleMonitoring(sensor.id)}
-          >
-            <Ionicons
-              name={sensor.isMonitored ? "eye" : "eye-outline"}
-              size={20}
-              color={sensor.isMonitored ? "#4361EE" : "#666"}
-            />
-          </TouchableOpacity>
-          <Ionicons name="chevron-forward" size={20} color="#ccc" />
-        </View>
-      </View>
-    </TouchableOpacity>
-  )
+      </TouchableOpacity>
+    )
+  }
 
   const renderSensorsList = () => {
+    if (!initialized) {
+      return (
+        <View style={styles.loadingState}>
+          <Text style={styles.loadingText}>Loading sensors...</Text>
+        </View>
+      )
+    }
+
     const filteredSensors = getFilteredSensors()
 
     if (filteredSensors.length === 0) {
       return (
         <View style={styles.emptyState}>
           <Ionicons name="search-outline" size={48} color="#ccc" />
-          <Text style={styles.emptyStateText}>No sensors found</Text>
-          <Text style={styles.emptyStateSubtext}>Try adjusting your search or filter</Text>
+          <Text style={styles.emptyStateText}>
+            {selectedCategory === "Monitored" ? "No monitored sensors" : "No sensors found"}
+          </Text>
+          <Text style={styles.emptyStateSubtext}>
+            {selectedCategory === "Monitored" 
+              ? "Go to Settings to select areas to monitor" 
+              : "Try adjusting your search or filter"}
+          </Text>
+          {selectedCategory === "Monitored" && (
+            <TouchableOpacity 
+              style={styles.settingsButton} 
+              onPress={() => router.push("/(tabs)/settings")}
+            >
+              <Text style={styles.settingsButtonText}>Open Settings</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )
     }
@@ -304,6 +332,7 @@ const styles = StyleSheet.create({
   aqiContainer: {
     flexDirection: "row",
     alignItems: "center",
+    marginBottom: 4,
   },
   aqiLabel: {
     fontSize: 14,
@@ -319,6 +348,21 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     textTransform: "uppercase",
   },
+  monitoringBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#E6EFFF",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    alignSelf: "flex-start",
+  },
+  monitoringBadgeText: {
+    fontSize: 11,
+    color: "#4361EE",
+    fontWeight: "500",
+    marginLeft: 4,
+  },
   sensorActions: {
     flexDirection: "row",
     alignItems: "center",
@@ -331,6 +375,14 @@ const styles = StyleSheet.create({
   },
   monitorButtonActive: {
     backgroundColor: "#E6EFFF",
+  },
+  loadingState: {
+    alignItems: "center",
+    paddingVertical: 60,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: "#666",
   },
   emptyState: {
     alignItems: "center",
@@ -347,5 +399,17 @@ const styles = StyleSheet.create({
     color: "#999",
     marginTop: 8,
     textAlign: "center",
+  },
+  settingsButton: {
+    backgroundColor: "#4361EE",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  settingsButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
   },
 })

@@ -1,3 +1,4 @@
+// hooks/useDevicesWithMonitoring.ts
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -10,22 +11,50 @@ export const useDevicesWithMonitoring = () => {
 
   // Add a state to force re-renders when monitoring changes
   const [monitoringVersion, setMonitoringVersion] = useState(0)
+  // Add a force update counter for complete refresh
+  const [forceUpdateCounter, setForceUpdateCounter] = useState(0)
 
-  const { devices, loading: devicesLoading, updateDeviceMonitoringStatus } = devicesHook
+  const { devices, loading: devicesLoading, updateDeviceMonitoringStatus, refreshDevices } = devicesHook
   const { initialized, initializeMonitoringAreas, getMonitoredDeviceIds, monitoringAreas } = monitoringHook
 
   // Use refs to track if we've already initialized/updated
   const hasInitialized = useRef(false)
   const lastMonitoredDeviceIds = useRef<string>("")
 
-  // Initialize monitoring areas when devices are loaded (ONCE)
+  // Complete refresh function - resets everything to fresh state
+  const forceCompleteReset = useCallback(async () => {
+    console.log("🔄 FORCE COMPLETE RESET - Starting fresh state reload...")
+    
+    try {
+      // 1. Reset all tracking refs
+      hasInitialized.current = false
+      lastMonitoredDeviceIds.current = ""
+      
+      // 2. Force monitoring hook to reload from MMKV
+      monitoringHook.setInitialized(false)
+      monitoringHook.setLoading(true)
+      
+      // 3. Refresh devices from API
+      await refreshDevices()
+      
+      // 4. Force complete re-render
+      setForceUpdateCounter(prev => prev + 1)
+      setMonitoringVersion(prev => prev + 1)
+      
+      console.log("✅ FORCE COMPLETE RESET - Fresh state loaded successfully")
+    } catch (error) {
+      console.error("❌ FORCE COMPLETE RESET - Error during refresh:", error)
+    }
+  }, [refreshDevices, monitoringHook])
+
+  // Initialize monitoring areas when devices are loaded (ONCE per reset)
   useEffect(() => {
     if (!devicesLoading && devices.length > 0 && !initialized && !hasInitialized.current) {
-      console.log("🔄 Initializing monitoring with", devices.length, "devices")
+      console.log("🔄 Initializing monitoring with", devices.length, "devices (force counter:", forceUpdateCounter, ")")
       hasInitialized.current = true
       initializeMonitoringAreas(devices)
     }
-  }, [devices, devicesLoading, initialized, initializeMonitoringAreas])
+  }, [devices, devicesLoading, initialized, initializeMonitoringAreas, forceUpdateCounter])
 
   // Update device monitoring status when monitoring areas change (ONLY if actually changed)
   useEffect(() => {
@@ -35,7 +64,12 @@ export const useDevicesWithMonitoring = () => {
 
       // Only update if the monitored device IDs actually changed
       if (currentIds !== lastMonitoredDeviceIds.current) {
-        console.log("📊 Updating device monitoring status:", monitoredDeviceIds)
+        console.log("📊 Device monitoring status changed:", {
+          old: lastMonitoredDeviceIds.current,
+          new: currentIds,
+          ids: monitoredDeviceIds,
+          forceCounter: forceUpdateCounter
+        })
         lastMonitoredDeviceIds.current = currentIds
         updateDeviceMonitoringStatus(monitoredDeviceIds)
 
@@ -43,25 +77,37 @@ export const useDevicesWithMonitoring = () => {
         setMonitoringVersion((prev) => prev + 1)
       }
     }
-  }, [initialized, monitoringAreas, updateDeviceMonitoringStatus, getMonitoredDeviceIds])
+  }, [initialized, monitoringAreas, updateDeviceMonitoringStatus, getMonitoredDeviceIds, forceUpdateCounter])
 
-  // Memoize monitored devices to ensure proper re-renders
+  // Get monitored devices - ONLY return devices that are actually being monitored
   const monitoredDevices = useMemo(() => {
-    if (!initialized) return []
+    if (!initialized) {
+      console.log("🔍 Monitoring not initialized, returning empty array")
+      return []
+    }
 
-    const monitoredDeviceIds = getMonitoredDeviceIds()
-    const filtered = devices.filter((device) => monitoredDeviceIds.includes(device.deviceId))
+    // Always get fresh monitored device IDs
+    const currentMonitoredIds = getMonitoredDeviceIds()
+    
+    if (currentMonitoredIds.length === 0) {
+      console.log("🔍 No areas are being monitored, returning empty array")
+      return []
+    }
 
-    console.log("🔍 Recalculating monitored devices:", {
+    const filtered = devices.filter((device) => currentMonitoredIds.includes(device.deviceId))
+
+    console.log("🔍 FRESH monitored devices calculation:", {
       totalDevices: devices.length,
-      monitoredIds: monitoredDeviceIds,
+      currentMonitoredIds,
       filteredCount: filtered.length,
       filtered: filtered.map((d) => ({ id: d.id, name: d.name, location: d.location })),
-      version: monitoringVersion, // Include version in log
+      version: monitoringVersion,
+      forceCounter: forceUpdateCounter,
+      areasHash: monitoringAreas.map(a => `${a.location}:${a.enabled}`).join(',')
     })
 
     return filtered
-  }, [devices, initialized, getMonitoredDeviceIds, monitoringAreas, monitoringVersion])
+  }, [devices, initialized, monitoringAreas.map(a => `${a.location}:${a.enabled}`).join(','), monitoringVersion, forceUpdateCounter])
 
   // Memoize the getMonitoredDevices function to return the same reference
   const getMonitoredDevices = useCallback(() => {
@@ -83,6 +129,24 @@ export const useDevicesWithMonitoring = () => {
     }
   }, [monitoringAreas, monitoredDevices])
 
+  // Get available areas that can be monitored (from all devices)
+  const getAvailableAreas = useCallback(() => {
+    const locationGroups: { [key: string]: any[] } = {}
+    devices.forEach((device) => {
+      const location = device.location || "Unknown Location"
+      if (!locationGroups[location]) {
+        locationGroups[location] = []
+      }
+      locationGroups[location].push(device)
+    })
+
+    return Object.entries(locationGroups).map(([location, deviceList]) => ({
+      location,
+      deviceCount: deviceList.length,
+      devices: deviceList.map((d) => d.deviceId),
+    }))
+  }, [devices])
+
   return {
     // Devices
     ...devicesHook,
@@ -93,6 +157,9 @@ export const useDevicesWithMonitoring = () => {
     monitoredDevices,
     monitoringSummary,
     monitoringVersion, // Expose version for debugging
+    forceUpdateCounter, // Expose force counter for debugging
+    getAvailableAreas, // New function to get available areas
+    forceCompleteReset, // NEW: Complete refresh function
     loading: devicesLoading || monitoringHook.loading,
   }
 }

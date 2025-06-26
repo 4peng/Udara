@@ -7,7 +7,7 @@ export interface AQICategory {
   maxValue: number
 }
 
-// Simplified 3-color AQI system
+// Simplified 3-level AQI system: Healthy, Moderate, Unhealthy
 export const AQI_CATEGORIES: AQICategory[] = [
   {
     name: "Healthy",
@@ -26,7 +26,7 @@ export const AQI_CATEGORIES: AQICategory[] = [
     maxValue: 200,
   },
   {
-    name: "Hazardous",
+    name: "Unhealthy",
     range: "201+",
     color: "#F44336", // Red
     description: "Air quality is unhealthy and may cause health effects for everyone.",
@@ -36,13 +36,16 @@ export const AQI_CATEGORIES: AQICategory[] = [
 ]
 
 export const getAQICategory = (aqi: number): AQICategory => {
-  for (const category of AQI_CATEGORIES) {
-    if (aqi >= category.minValue && aqi <= category.maxValue) {
-      return category
-    }
+  // Ensure AQI is within valid range
+  const validAQI = Math.max(0, Math.min(500, aqi))
+  
+  if (validAQI <= 100) {
+    return AQI_CATEGORIES[0] // Healthy
+  } else if (validAQI <= 200) {
+    return AQI_CATEGORIES[1] // Moderate
+  } else {
+    return AQI_CATEGORIES[2] // Unhealthy
   }
-  // Return the highest category for values above 500
-  return AQI_CATEGORIES[AQI_CATEGORIES.length - 1]
 }
 
 export const getAQIColor = (aqi: number): string => {
@@ -72,9 +75,30 @@ export const SIMPLE_AQI_CATEGORIES = [
     filter: "moderate",
   },
   {
-    name: "Hazardous",
+    name: "Unhealthy",
     range: "201+",
     color: "#F44336",
-    filter: "hazardous",
+    filter: "unhealthy",
   },
 ]
+
+// Helper function to validate AQI value
+export const validateAQI = (aqi: number): number => {
+  if (typeof aqi !== 'number' || isNaN(aqi)) {
+    return 50 // Default to healthy if invalid
+  }
+  return Math.max(0, Math.min(500, Math.round(aqi)))
+}
+
+// Helper function to get AQI level for filtering
+export const getAQILevel = (aqi: number): 'healthy' | 'moderate' | 'unhealthy' => {
+  const validAQI = validateAQI(aqi)
+  
+  if (validAQI <= 100) {
+    return 'healthy'
+  } else if (validAQI <= 200) {
+    return 'moderate'
+  } else {
+    return 'unhealthy'
+  }
+}

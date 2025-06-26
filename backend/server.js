@@ -28,18 +28,83 @@ async function connectToDatabase() {
 app.use(cors())
 app.use(express.json())
 
-// Helper function to generate mock AQI data
-function generateMockAQI() {
-  return Math.floor(Math.random() * 200) + 1
+// Simplified 3-level AQI calculation (Healthy, Moderate, Unhealthy)
+function calculateAQI(pollutants) {
+  if (!pollutants) return 50; // Default to healthy if no data
+  
+  const pm25 = pollutants.pm25 || 0;
+  const pm10 = pollutants.pm10 || 0;
+  const no2 = pollutants.no2 || 0;
+  const so2 = pollutants.so2 || 0;
+  
+  // Calculate individual AQI values for each pollutant
+  const pm25AQI = calculatePM25AQI(pm25);
+  const pm10AQI = calculatePM10AQI(pm10);
+  const no2AQI = calculateNO2AQI(no2);
+  const so2AQI = calculateSO2AQI(so2);
+  
+  // Return the highest (most restrictive) AQI
+  const maxAQI = Math.max(pm25AQI, pm10AQI, no2AQI, so2AQI);
+  
+  console.log(`AQI Calculation - PM2.5: ${pm25} -> ${pm25AQI}, PM10: ${pm10} -> ${pm10AQI}, Final AQI: ${maxAQI}`);
+  
+  return maxAQI;
 }
 
-// Helper function to calculate AQI from pollutant data
-function calculateAQI(pollutants) {
-  // Simplified AQI calculation for 3-color system
-  const pm25 = pollutants.pm25 || 0
-  if (pm25 <= 35) return Math.floor(Math.random() * 100) + 1 // Healthy (0-100)
-  if (pm25 <= 75) return Math.floor(Math.random() * 100) + 101 // Moderate (101-200)
-  return Math.floor(Math.random() * 100) + 201 // Hazardous (201+)
+// PM2.5 AQI calculation for 3-level system
+function calculatePM25AQI(pm25) {
+  if (pm25 <= 35) {
+    // Healthy: 0-100 AQI
+    return Math.round((pm25 / 35) * 100);
+  } else if (pm25 <= 75) {
+    // Moderate: 101-200 AQI
+    return Math.round(101 + ((pm25 - 35) / 40) * 99);
+  } else {
+    // Unhealthy: 201-300 AQI
+    return Math.round(201 + Math.min(((pm25 - 75) / 75) * 99, 99));
+  }
+}
+
+// PM10 AQI calculation for 3-level system
+function calculatePM10AQI(pm10) {
+  if (pm10 <= 50) {
+    // Healthy: 0-100 AQI
+    return Math.round((pm10 / 50) * 100);
+  } else if (pm10 <= 100) {
+    // Moderate: 101-200 AQI
+    return Math.round(101 + ((pm10 - 50) / 50) * 99);
+  } else {
+    // Unhealthy: 201-300 AQI
+    return Math.round(201 + Math.min(((pm10 - 100) / 100) * 99, 99));
+  }
+}
+
+// NO2 AQI calculation for 3-level system (assuming ppb values)
+function calculateNO2AQI(no2) {
+  if (no2 <= 50) {
+    // Healthy: 0-100 AQI
+    return Math.round((no2 / 50) * 100);
+  } else if (no2 <= 100) {
+    // Moderate: 101-200 AQI
+    return Math.round(101 + ((no2 - 50) / 50) * 99);
+  } else {
+    // Unhealthy: 201-300 AQI
+    return Math.round(201 + Math.min(((no2 - 100) / 100) * 99, 99));
+  }
+}
+
+// SO2 AQI calculation for 3-level system (assuming ppb values)
+function calculateSO2AQI(so2) {
+  if (so2 <= 30) {
+    // Healthy: 0-100 AQI
+    return Math.round((so2 / 30) * 100);
+  } else if (so2 <= 75) {
+    // Moderate: 101-200 AQI
+    return Math.round(101 + ((so2 - 30) / 45) * 99);
+  } else {
+    // Unhealthy: 201-300 AQI
+    return Math.round(201 + Math.min(((so2 - 75) / 75) * 99, 99));
+  }
 }
 
 // Helper function to get latest pollutant data for a device
@@ -48,7 +113,7 @@ async function getLatestPollutantData(deviceId) {
     const pollutantCollection = db.collection("pollutantdatas")
     const latestData = await pollutantCollection.findOne({ deviceId }, { sort: { timestamp: -1 } })
 
-    console.log(`Latest pollutant data for ${deviceId}:`, latestData)
+    console.log(`Latest pollutant data for ${deviceId}:`, latestData?.pollutants)
     return latestData
   } catch (error) {
     console.error(`Error fetching pollutant data for ${deviceId}:`, error)
@@ -90,6 +155,7 @@ async function getHistoricalPollutantData(deviceId, hours = 24) {
 // Get all devices
 app.get("/api/devices", async (req, res) => {
   try {
+    console.log("📡 API: Fetching all devices...")
     const devicesCollection = db.collection("devices_mobile")
     const devices = await devicesCollection.find({ status: "active" }).toArray()
 
@@ -97,7 +163,7 @@ app.get("/api/devices", async (req, res) => {
       devices.map(async (device) => {
         // Get latest pollutant data for each device
         const pollutantData = await getLatestPollutantData(device.deviceId)
-        const aqi = pollutantData ? calculateAQI(pollutantData.pollutants) : generateMockAQI()
+        const aqi = pollutantData ? calculateAQI(pollutantData.pollutants) : 50 // Default to healthy
 
         return {
           id: device.deviceId,
@@ -116,12 +182,13 @@ app.get("/api/devices", async (req, res) => {
       }),
     )
 
+    console.log(`✅ API: Returning ${transformedDevices.length} devices`)
     res.json({
       success: true,
       devices: transformedDevices,
     })
   } catch (error) {
-    console.error("Error fetching devices:", error)
+    console.error("❌ API: Error fetching devices:", error)
     res.status(500).json({
       success: false,
       error: "Failed to fetch devices",
@@ -133,7 +200,7 @@ app.get("/api/devices", async (req, res) => {
 app.get("/api/devices/:deviceId", async (req, res) => {
   try {
     const { deviceId } = req.params
-    console.log(`Fetching detailed data for device: ${deviceId}`)
+    console.log(`📡 API: Fetching detailed data for device: ${deviceId}`)
 
     const devicesCollection = db.collection("devices_mobile")
     const device = await devicesCollection.findOne({ deviceId })
@@ -278,12 +345,13 @@ app.get("/api/devices/:deviceId", async (req, res) => {
       },
     }
 
+    console.log(`✅ API: Returning device details for ${deviceId}, AQI: ${aqi}`)
     res.json({
       success: true,
       device: transformedDevice,
     })
   } catch (error) {
-    console.error("Error fetching device details:", error)
+    console.error("❌ API: Error fetching device details:", error)
     res.status(500).json({
       success: false,
       error: "Failed to fetch device details",
