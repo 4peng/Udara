@@ -28,6 +28,32 @@ const DEBUG_MODE = __DEV__
 // Auto-refresh interval: 5 minutes (300,000 milliseconds)
 const AUTO_REFRESH_INTERVAL = 5 * 60 * 1000
 
+// Helper functions for environmental analysis
+const getComfortLevel = (temp, humidity) => {
+  if (!temp || !humidity) return 'Unknown'
+  
+  if (temp >= 20 && temp <= 26 && humidity >= 40 && humidity <= 70) {
+    return 'Comfortable'
+  } else if (temp > 30 || humidity > 80) {
+    return 'Uncomfortable'
+  } else if (temp < 18 || humidity < 30) {
+    return 'Too Dry/Cold'
+  } else {
+    return 'Moderate'
+  }
+}
+
+const getComfortLevelColor = (temp, humidity) => {
+  const level = getComfortLevel(temp, humidity)
+  switch (level) {
+    case 'Comfortable': return '#4CAF50'
+    case 'Moderate': return '#FFC107'
+    case 'Uncomfortable': return '#FF5722'
+    case 'Too Dry/Cold': return '#2196F3'
+    default: return '#666'
+  }
+}
+
 export default function HomeScreen() {
   const [currentDate, setCurrentDate] = useState("")
   const [showDebugInfo, setShowDebugInfo] = useState(false)
@@ -50,19 +76,18 @@ export default function HomeScreen() {
     monitoringSummary,
     initialized,
     monitoringVersion,
-    forceUpdateCounter,
-    forceCompleteReset, // NEW: Complete refresh function
+    forceCompleteReset
   } = useDevicesWithMonitoring()
 
-  // FORCE REFRESH when returning from Settings
+  // SIMPLE REFRESH when returning from Settings
   useFocusEffect(
     useCallback(() => {
-      console.log("🔄 Home screen focused - checking if refresh needed...")
+      console.log("🔄 Home screen focused - triggering simple refresh...")
       
       // Small delay to ensure any navigation state changes are complete
       const timeoutId = setTimeout(() => {
         if (isComponentMounted.current) {
-          console.log("🔄 Home screen focus - triggering complete refresh")
+          console.log("🔄 Home screen focus - refreshing devices")
           forceCompleteReset()
         }
       }, 100)
@@ -107,13 +132,13 @@ export default function HomeScreen() {
       // Reset countdown
       setTimeUntilNextRefresh(AUTO_REFRESH_INTERVAL)
 
-      // Set up auto-refresh interval (every 5 minutes) - NOW USES COMPLETE RESET
+      // Set up auto-refresh interval (every 5 minutes)
       autoRefreshInterval.current = setInterval(() => {
         if (!isComponentMounted.current) return
         
-        console.log("🔄 Auto-refreshing data (5-minute interval) - COMPLETE RESET...")
+        console.log("🔄 Auto-refreshing data (5-minute interval)...")
         setIsAutoRefreshing(true)
-        forceCompleteReset() // Use complete reset instead of just refreshDevices
+        forceCompleteReset()
         setLastRefreshTime(new Date())
         setTimeUntilNextRefresh(AUTO_REFRESH_INTERVAL)
         
@@ -156,7 +181,7 @@ export default function HomeScreen() {
       }
       console.log("🧹 Auto-refresh intervals cleared")
     }
-  }, [forceCompleteReset]) // Changed dependency from refreshDevices to forceCompleteReset
+  }, [refreshDevices])
 
   // Debug logging
   useEffect(() => {
@@ -169,13 +194,12 @@ export default function HomeScreen() {
         error,
         initialized,
         monitoringVersion,
-        forceUpdateCounter,
         monitoredDeviceIds: getMonitoredDeviceIds(),
         lastRefresh: lastRefreshTime.toLocaleTimeString(),
         nextRefreshIn: Math.ceil(timeUntilNextRefresh / 60000) + "min",
       })
     }
-  }, [devices, monitoredDevices, loading, error, initialized, monitoringVersion, forceUpdateCounter, getMonitoredDeviceIds, lastRefreshTime, timeUntilNextRefresh])
+  }, [devices, monitoredDevices, loading, error, initialized, monitoringVersion, getMonitoredDeviceIds, lastRefreshTime, timeUntilNextRefresh])
 
   // Add safety check for devices - FORCE FRESH CALCULATION
   const safeDevices = Array.isArray(devices) ? devices : []
@@ -185,10 +209,9 @@ export default function HomeScreen() {
       monitoredDevicesLength: monitored.length,
       monitoredDevices: monitored.map(d => ({ id: d.id, name: d.name, location: d.location })),
       monitoringVersion,
-      forceUpdateCounter
     })
     return monitored
-  }, [monitoredDevices, monitoringVersion, forceUpdateCounter])
+  }, [monitoredDevices, monitoringVersion])
 
   const getOverallAQI = () => {
     if (safeMonitoredDevices.length === 0) {
@@ -200,6 +223,33 @@ export default function HomeScreen() {
 
     const totalAQI = safeMonitoredDevices.reduce((sum, device) => sum + (device.aqi || 0), 0)
     return Math.round(totalAQI / safeMonitoredDevices.length)
+  }
+
+  // UPDATED: Calculate average environmental conditions from actual device data
+  const getAverageEnvironmental = () => {
+    const devices = safeMonitoredDevices.length > 0 ? safeMonitoredDevices : safeDevices
+    if (devices.length === 0) return { temp: '24°C', humidity: '65%', tempValue: 24, humidityValue: 65 }
+    
+    // Extract numeric values from temperature and humidity strings
+    const temps = devices.map(d => {
+      const tempMatch = d.temperature?.match(/(\d+\.?\d*)/)
+      return tempMatch ? parseFloat(tempMatch[1]) : 25
+    })
+    
+    const humidities = devices.map(d => {
+      const humidityMatch = d.humidity?.match(/(\d+)/)
+      return humidityMatch ? parseInt(humidityMatch[1]) : 65
+    })
+    
+    const avgTemp = temps.reduce((sum, temp) => sum + temp, 0) / temps.length
+    const avgHumidity = humidities.reduce((sum, humidity) => sum + humidity, 0) / humidities.length
+    
+    return {
+      temp: `${Math.round(avgTemp)}°C`,
+      humidity: `${Math.round(avgHumidity)}%`,
+      tempValue: avgTemp,
+      humidityValue: avgHumidity
+    }
   }
 
   const handleMapPress = () => {
@@ -216,56 +266,52 @@ export default function HomeScreen() {
     }
   }
 
-  // UPDATED: Manual refresh now uses complete reset
-  const handleManualRefresh = () => {
-    if (loading || isAutoRefreshing) return
+  // FIXED: Manual refresh - keeps functionality but doesn't get stuck
+  const handleManualRefresh = async () => {
+    console.log("🔄 HomeScreen: Manual refresh requested")
     
-    console.log("🔄 HomeScreen: Manual refresh requested - COMPLETE RESET")
-    setIsAutoRefreshing(true)
-    
-    // Use complete reset instead of just refreshing devices
-    forceCompleteReset()
-    setLastRefreshTime(new Date())
-    setTimeUntilNextRefresh(AUTO_REFRESH_INTERVAL)
-    
-    // Reset the auto-refresh timer to start fresh 5-minute cycle
-    if (autoRefreshInterval.current) {
-      clearInterval(autoRefreshInterval.current)
-      autoRefreshInterval.current = setInterval(() => {
-        if (!isComponentMounted.current) return
-        
-        console.log("🔄 Auto-refreshing data (5-minute interval) - COMPLETE RESET...")
-        setIsAutoRefreshing(true)
-        forceCompleteReset()
-        setLastRefreshTime(new Date())
-        setTimeUntilNextRefresh(AUTO_REFRESH_INTERVAL)
-        setTimeout(() => {
-          if (isComponentMounted.current) {
-            setIsAutoRefreshing(false)
-          }
-        }, 2000)
-      }, AUTO_REFRESH_INTERVAL)
-    }
-
-    // Reset countdown timer
-    if (countdownInterval.current) {
-      clearInterval(countdownInterval.current)
-      countdownInterval.current = setInterval(() => {
-        if (!isComponentMounted.current) return
-        
-        setTimeUntilNextRefresh((prev) => {
-          const newTime = Math.max(0, prev - 30000)
-          return newTime <= 0 ? AUTO_REFRESH_INTERVAL : newTime
-        })
-      }, 30000)
-    }
-
-    // Reset auto-refresh flag after a short delay
-    setTimeout(() => {
-      if (isComponentMounted.current) {
-        setIsAutoRefreshing(false)
+    try {
+      // Use refreshDevices and update timing
+      forceCompleteReset()
+      setLastRefreshTime(new Date())
+      setTimeUntilNextRefresh(AUTO_REFRESH_INTERVAL)
+      
+      // Reset the auto-refresh timer to start fresh 5-minute cycle
+      if (autoRefreshInterval.current) {
+        clearInterval(autoRefreshInterval.current)
+        autoRefreshInterval.current = setInterval(() => {
+          if (!isComponentMounted.current) return
+          
+          console.log("🔄 Auto-refreshing data (5-minute interval)...")
+          setIsAutoRefreshing(true)
+          forceCompleteReset()
+          setLastRefreshTime(new Date())
+          setTimeUntilNextRefresh(AUTO_REFRESH_INTERVAL)
+          setTimeout(() => {
+            if (isComponentMounted.current) {
+              setIsAutoRefreshing(false)
+            }
+          }, 2000)
+        }, AUTO_REFRESH_INTERVAL)
       }
-    }, 2000)
+
+      // Reset countdown timer
+      if (countdownInterval.current) {
+        clearInterval(countdownInterval.current)
+        countdownInterval.current = setInterval(() => {
+          if (!isComponentMounted.current) return
+          
+          setTimeUntilNextRefresh((prev) => {
+            const newTime = Math.max(0, prev - 30000)
+            return newTime <= 0 ? AUTO_REFRESH_INTERVAL : newTime
+          })
+        }, 30000)
+      }
+      
+      console.log("✅ HomeScreen: Manual refresh completed successfully")
+    } catch (error) {
+      console.error("❌ HomeScreen: Manual refresh failed:", error)
+    }
   }
 
   const toggleDebugInfo = () => {
@@ -302,30 +348,70 @@ export default function HomeScreen() {
     )
   }
 
-  const renderEnvironmentalData = () => (
-    <View style={styles.environmentalData}>
-      <View style={styles.dataItem}>
-        <Ionicons name="thermometer-outline" size={16} color="#666" />
-        <Text style={styles.dataLabel}>Temperature</Text>
-        <Text style={styles.dataValue}>24°C</Text>
+  // UPDATED: Enhanced environmental data display with real data
+  const renderEnvironmentalData = () => {
+    const avgEnvironmental = getAverageEnvironmental()
+
+    return (
+      <View style={styles.environmentalData}>
+        <View style={styles.dataItem}>
+          <Ionicons name="thermometer-outline" size={16} color="#666" />
+          <Text style={styles.dataLabel}>Temperature</Text>
+          <Text style={styles.dataValue}>{avgEnvironmental.temp}</Text>
+        </View>
+        <View style={styles.dataItem}>
+          <Ionicons name="water-outline" size={16} color="#666" />
+          <Text style={styles.dataLabel}>Humidity</Text>
+          <Text style={styles.dataValue}>{avgEnvironmental.humidity}</Text>
+        </View>
+        <View style={styles.dataItem}>
+          <Ionicons name="time-outline" size={16} color="#666" />
+          <Text style={styles.dataLabel}>Updated</Text>
+          <Text style={styles.dataValue}>
+            {lastRefreshTime.toLocaleTimeString("en-US", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </Text>
+        </View>
       </View>
-      <View style={styles.dataItem}>
-        <Ionicons name="water-outline" size={16} color="#666" />
-        <Text style={styles.dataLabel}>Humidity</Text>
-        <Text style={styles.dataValue}>65%</Text>
+    )
+  }
+
+  // NEW: Environmental summary card for home screen
+  const renderEnvironmentalSummary = () => {
+    const devices = safeMonitoredDevices.length > 0 ? safeMonitoredDevices : safeDevices
+    
+    if (devices.length === 0) {
+      return null
+    }
+
+    const avgEnvironmental = getAverageEnvironmental()
+    const comfortLevel = getComfortLevel(avgEnvironmental.tempValue, avgEnvironmental.humidityValue)
+    const comfortColor = getComfortLevelColor(avgEnvironmental.tempValue, avgEnvironmental.humidityValue)
+
+    return (
+      <View style={styles.environmentalSummary}>
+        <Text style={styles.environmentalSummaryTitle}>Campus Climate</Text>
+        <View style={styles.environmentalSummaryContent}>
+          <View style={styles.environmentalMetric}>
+            <Text style={styles.environmentalMetricValue}>{avgEnvironmental.temp}</Text>
+            <Text style={styles.environmentalMetricLabel}>Average Temperature</Text>
+          </View>
+          <View style={styles.environmentalMetric}>
+            <Text style={styles.environmentalMetricValue}>{avgEnvironmental.humidity}</Text>
+            <Text style={styles.environmentalMetricLabel}>Average Humidity</Text>
+          </View>
+          <View style={styles.environmentalMetric}>
+            <Text style={[styles.environmentalMetricValue, { color: comfortColor }]}>
+              {comfortLevel}
+            </Text>
+            <Text style={styles.environmentalMetricLabel}>Comfort Level</Text>
+          </View>
+        </View>
       </View>
-      <View style={styles.dataItem}>
-        <Ionicons name="time-outline" size={16} color="#666" />
-        <Text style={styles.dataLabel}>Updated</Text>
-        <Text style={styles.dataValue}>
-          {lastRefreshTime.toLocaleTimeString("en-US", {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
-        </Text>
-      </View>
-    </View>
-  )
+    )
+  }
 
   const renderMapSection = () => {
     if (loading) {
@@ -504,15 +590,15 @@ export default function HomeScreen() {
           <Text style={styles.headerDate}>{currentDate}</Text>
         </View>
         <View style={styles.headerActions}>
+          {/* Keep refresh button always clickable, just show visual feedback */}
           <TouchableOpacity 
-            style={[styles.headerButton, (loading || isAutoRefreshing) && styles.headerButtonDisabled]} 
+            style={styles.headerButton} 
             onPress={handleManualRefresh}
-            disabled={loading || isAutoRefreshing}
           >
             <Ionicons 
-              name={isAutoRefreshing ? "sync" : "refresh-outline"} 
+              name="refresh-outline"
               size={24} 
-              color={(loading || isAutoRefreshing) ? "#ccc" : "#666"} 
+              color="#666"
             />
           </TouchableOpacity>
           {DEBUG_MODE && (
@@ -526,7 +612,7 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* Auto-refresh status */}
+      {/* Auto-refresh status - Remove the stuck "Refreshing..." state */}
       <View style={styles.refreshStatus}>
         <View style={styles.refreshStatusLeft}>
           <Ionicons 
@@ -559,7 +645,6 @@ export default function HomeScreen() {
           <Text style={styles.debugText}>Auto-refreshing: {isAutoRefreshing ? "Yes" : "No"}</Text>
           <Text style={styles.debugText}>Initialized: {initialized ? "Yes" : "No"}</Text>
           <Text style={styles.debugText}>Monitoring Version: {monitoringVersion}</Text>
-          <Text style={styles.debugText}>Force Counter: {forceUpdateCounter}</Text>
           <Text style={styles.debugText}>Error: {error || "None"}</Text>
           <Text style={styles.debugText}>Monitored IDs: {getMonitoredDeviceIds().join(", ")}</Text>
           <Text style={styles.debugText}>Location Groups: {Object.keys(locationGroups).join(", ")}</Text>
@@ -573,6 +658,9 @@ export default function HomeScreen() {
 
         {/* Environmental Data */}
         {renderEnvironmentalData()}
+
+        {/* NEW: Environmental Summary */}
+        {renderEnvironmentalSummary()}
 
         {/* Map Section */}
         {renderMapSection()}
@@ -613,9 +701,6 @@ const styles = StyleSheet.create({
   },
   headerButton: {
     marginLeft: 16,
-  },
-  headerButtonDisabled: {
-    opacity: 0.5,
   },
   refreshStatus: {
     flexDirection: "row",
@@ -717,6 +802,39 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#333",
     marginTop: 2,
+  },
+  // NEW: Environmental summary styles
+  environmentalSummary: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    backgroundColor: "#F8F9FA",
+    borderRadius: 12,
+    padding: 16,
+  },
+  environmentalSummaryTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 12,
+  },
+  environmentalSummaryContent: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+  },
+  environmentalMetric: {
+    alignItems: "center",
+    flex: 1,
+  },
+  environmentalMetricValue: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 4,
+  },
+  environmentalMetricLabel: {
+    fontSize: 11,
+    color: "#666",
+    textAlign: "center",
   },
   mapSection: {
     marginHorizontal: 20,

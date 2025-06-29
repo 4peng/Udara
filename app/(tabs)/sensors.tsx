@@ -22,7 +22,8 @@ export default function SensorsScreen() {
     isDeviceMonitored,
     toggleAreaMonitoring,
     monitoringAreas,
-    initialized
+    initialized,
+    forceCompleteReset
   } = useDevicesWithMonitoring()
 
   // Helper function to check if a device is monitored
@@ -168,6 +169,7 @@ export default function SensorsScreen() {
         </View>
       )
     }
+    
 
     const filteredSensors = getFilteredSensors()
 

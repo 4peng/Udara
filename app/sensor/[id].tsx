@@ -1,3 +1,4 @@
+// app/sensor/[id].tsx
 "use client"
 
 import { Ionicons } from "@expo/vector-icons"
@@ -18,6 +19,56 @@ import { LineChart } from "react-native-chart-kit"
 import { useDeviceDetail } from "../../hooks/useDeviceDetail"
 
 const { width } = Dimensions.get("window")
+
+// Helper functions for environmental analysis
+const getComfortLevel = (temp, humidity) => {
+  if (!temp || !humidity) return 'Unknown'
+  
+  if (temp >= 20 && temp <= 26 && humidity >= 40 && humidity <= 70) {
+    return 'Comfortable'
+  } else if (temp > 30 || humidity > 80) {
+    return 'Uncomfortable'
+  } else if (temp < 18 || humidity < 30) {
+    return 'Too Dry/Cold'
+  } else {
+    return 'Moderate'
+  }
+}
+
+const getComfortLevelColor = (temp, humidity) => {
+  const level = getComfortLevel(temp, humidity)
+  switch (level) {
+    case 'Comfortable': return '#4CAF50'
+    case 'Moderate': return '#FFC107'
+    case 'Uncomfortable': return '#FF5722'
+    case 'Too Dry/Cold': return '#2196F3'
+    default: return '#666'
+  }
+}
+
+const calculateHeatIndex = (temp, humidity) => {
+  if (!temp || !humidity) return 'N/A'
+  
+  // Simplified heat index calculation
+  if (temp < 27) return temp.toFixed(1)
+  
+  const c1 = -8.78469475556
+  const c2 = 1.61139411
+  const c3 = 2.33854883889
+  const c4 = -0.14611605
+  const c5 = -0.012308094
+  const c6 = -0.0164248277778
+  const c7 = 0.002211732
+  const c8 = 0.00072546
+  const c9 = -0.000003582
+  
+  const heatIndex = c1 + (c2 * temp) + (c3 * humidity) + 
+                   (c4 * temp * humidity) + (c5 * temp * temp) + 
+                   (c6 * humidity * humidity) + (c7 * temp * temp * humidity) + 
+                   (c8 * temp * humidity * humidity) + (c9 * temp * temp * humidity * humidity)
+  
+  return Math.max(temp, heatIndex).toFixed(1)
+}
 
 export default function SensorDetailScreen() {
   const { id } = useLocalSearchParams()
@@ -138,17 +189,28 @@ export default function SensorDetailScreen() {
     )
   }
 
+  // UPDATED: Enhanced environmental data display with averages
   const renderEnvironmentalData = () => (
     <View style={styles.environmentalSection}>
       <View style={styles.envItem}>
         <Ionicons name="thermometer-outline" size={16} color="#666" />
         <Text style={styles.envLabel}>Temperature</Text>
         <Text style={styles.envValue}>{device.temperature}</Text>
+        {device.environmental && (
+          <Text style={styles.envAverage}>
+            24h avg: {device.environmental.average24h.temperature}°C
+          </Text>
+        )}
       </View>
       <View style={styles.envItem}>
         <Ionicons name="water-outline" size={16} color="#666" />
         <Text style={styles.envLabel}>Humidity</Text>
         <Text style={styles.envValue}>{device.humidity}</Text>
+        {device.environmental && (
+          <Text style={styles.envAverage}>
+            24h avg: {device.environmental.average24h.humidity}%
+          </Text>
+        )}
       </View>
       <View style={styles.envItem}>
         <Ionicons name="location-outline" size={16} color="#666" />
@@ -157,6 +219,89 @@ export default function SensorDetailScreen() {
       </View>
     </View>
   )
+
+  // NEW: Environmental details section
+  const renderEnvironmentalDetails = () => {
+    if (!device.environmental) return null
+
+    const currentTemp = device.environmental.current.temperature
+    const currentHumidity = device.environmental.current.humidity
+    const comfortLevel = getComfortLevel(currentTemp, currentHumidity)
+    const comfortColor = getComfortLevelColor(currentTemp, currentHumidity)
+    const heatIndex = calculateHeatIndex(currentTemp, currentHumidity)
+
+    return (
+      <View style={styles.environmentalDetailsSection}>
+        <Text style={styles.sectionTitle}>Environmental Conditions</Text>
+        
+        <View style={styles.environmentalGrid}>
+          <View style={styles.environmentalCard}>
+            <View style={styles.environmentalCardHeader}>
+              <Ionicons name="thermometer" size={24} color="#FF6B6B" />
+              <Text style={styles.environmentalCardTitle}>Temperature</Text>
+            </View>
+            <Text style={styles.environmentalCardValue}>
+              {currentTemp || 'N/A'}°C
+            </Text>
+            <Text style={styles.environmentalCardSubtext}>
+              24h average: {device.environmental.average24h.temperature || 'N/A'}°C
+            </Text>
+            <View style={styles.environmentalCardChart}>
+              <View 
+                style={[
+                  styles.environmentalBar, 
+                  { 
+                    backgroundColor: '#FF6B6B',
+                    width: `${Math.min(100, ((currentTemp || 25) / 35) * 100)}%`
+                  }
+                ]} 
+              />
+            </View>
+          </View>
+
+          <View style={styles.environmentalCard}>
+            <View style={styles.environmentalCardHeader}>
+              <Ionicons name="water" size={24} color="#4ECDC4" />
+              <Text style={styles.environmentalCardTitle}>Humidity</Text>
+            </View>
+            <Text style={styles.environmentalCardValue}>
+              {currentHumidity || 'N/A'}%
+            </Text>
+            <Text style={styles.environmentalCardSubtext}>
+              24h average: {device.environmental.average24h.humidity || 'N/A'}%
+            </Text>
+            <View style={styles.environmentalCardChart}>
+              <View 
+                style={[
+                  styles.environmentalBar, 
+                  { 
+                    backgroundColor: '#4ECDC4',
+                    width: `${Math.min(100, ((currentHumidity || 65) / 100) * 100)}%`
+                  }
+                ]} 
+              />
+            </View>
+          </View>
+        </View>
+
+        {/* Environmental trend indicators */}
+        <View style={styles.environmentalTrends}>
+          <View style={styles.trendItem}>
+            <Text style={styles.trendLabel}>Comfort Level</Text>
+            <Text style={[styles.trendValue, { color: comfortColor }]}>
+              {comfortLevel}
+            </Text>
+          </View>
+          <View style={styles.trendItem}>
+            <Text style={styles.trendLabel}>Heat Index</Text>
+            <Text style={styles.trendValue}>
+              {heatIndex}°C
+            </Text>
+          </View>
+        </View>
+      </View>
+    )
+  }
 
   const renderTimePeriodSelector = () => (
     <View style={styles.periodSelector}>
@@ -291,6 +436,7 @@ export default function SensorDetailScreen() {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {renderAQIDisplay()}
         {renderEnvironmentalData()}
+        {renderEnvironmentalDetails()}
         {renderTimePeriodSelector()}
         {renderChart()}
         {renderPollutantDetails()}
@@ -300,7 +446,6 @@ export default function SensorDetailScreen() {
   )
 }
 
-// Rest of your styles remain the same...
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -394,6 +539,82 @@ const styles = StyleSheet.create({
     color: "#333",
     marginTop: 4,
     textAlign: "center",
+  },
+  envAverage: {
+    fontSize: 10,
+    color: "#999",
+    marginTop: 2,
+    textAlign: "center",
+  },
+  // NEW: Environmental details styles
+  environmentalDetailsSection: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+  },
+  environmentalGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  environmentalCard: {
+    flex: 1,
+    backgroundColor: "#F8F9FA",
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 4,
+  },
+  environmentalCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  environmentalCardTitle: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#333",
+    marginLeft: 8,
+  },
+  environmentalCardValue: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 4,
+  },
+  environmentalCardSubtext: {
+    fontSize: 12,
+    color: "#666",
+    marginBottom: 8,
+  },
+  environmentalCardChart: {
+    height: 4,
+    backgroundColor: "#E0E0E0",
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  environmentalBar: {
+    height: "100%",
+    borderRadius: 2,
+  },
+  environmentalTrends: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    paddingVertical: 16,
+    backgroundColor: "#F8F9FA",
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  trendItem: {
+    alignItems: "center",
+  },
+  trendLabel: {
+    fontSize: 12,
+    color: "#666",
+    marginBottom: 4,
+  },
+  trendValue: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
   },
   periodSelector: {
     flexDirection: "row",
