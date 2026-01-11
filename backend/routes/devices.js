@@ -1,0 +1,385 @@
+const express = require("express");
+const router = express.Router();
+const Device = require("../model/Device");
+const { AirQualityReading } = require("../model/AirQualityReading");
+
+// Validation middleware
+const validateDeviceData = (req, res, next) => {
+  const { deviceId, name, location } = req.body;
+
+  // deviceId is required for creation (POST), optional for updates (PUT)
+  if (req.method === 'POST' && !deviceId) {
+    return res.status(400).json({
+      error: "deviceId is required",
+    });
+  }
+
+  if (!name) {
+    return res.status(400).json({
+      error: "name is required",
+    });
+  }
+
+  if (location && location.coordinates) {
+    const { latitude, longitude } = location.coordinates;
+    if (latitude < -90 || latitude > 90) {
+      return res.status(400).json({
+        error: "Latitude must be between -90 and 90",
+      });
+    }
+    if (longitude < -180 || longitude > 180) {
+      return res.status(400).json({
+        error: "Longitude must be between -180 and 180",
+      });
+    }
+  }
+
+  next();
+};
+
+// Get all devices
+router.get("/", async (req, res) => {
+  try {
+    const { status, active, search, limit, page } = req.query;
+
+    // Build query
+    let query = {};
+
+    if (status) {
+      query.status = status;
+    }
+
+    if (active !== undefined) {
+      query.isActive = active === "true";
+    }
+
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { deviceId: { $regex: search, $options: "i" } },
+        { "location.address": { $regex: search, $options: "i" } },
+      ];
+    }
+
+    // Pagination
+    const limitNum = parseInt(limit) || 50;
+    const pageNum = parseInt(page) || 1;
+    const skip = (pageNum - 1) * limitNum;
+
+    const devices = await Device.find(query)
+      .sort({ createdAt: -1 })
+      .limit(limitNum)
+      .skip(skip);
+
+    const total = await Device.countDocuments(query);
+
+    res.json({
+      devices,
+      pagination: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        pages: Math.ceil(total / limitNum),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching devices:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get active devices only (for dashboard map)
+router.get("/active", async (req, res) => {
+  try {
+    const devices = await Device.findActive().select(
+      "deviceId name location status createdAt"
+    );
+
+    // Format for frontend map component
+    const mapDevices = devices.map((device) => ({
+      id: device._id,
+      deviceId: device.deviceId,
+      name: device.name,
+      lat: device.location.coordinates.latitude,
+      lng: device.location.coordinates.longitude,
+      address: device.location.address,
+      city: device.location.city,
+      status: device.status,
+      coordinates: device.getCoordinates(),
+    }));
+
+    res.json(mapDevices);
+  } catch (error) {
+    console.error("Error fetching active devices:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get device details (metadata + latest reading)
+router.get("/:identifier", async (req, res) => {
+  try {
+    const { identifier } = req.params;
+
+    // Try to find by MongoDB _id first, then by deviceId
+    let device = await Device.findById(identifier);
+    if (!device) {
+      device = await Device.findOne({ deviceId: identifier.toUpperCase() });
+    }
+
+    if (!device) {
+      return res.status(404).json({ error: "Device not found" });
+    }
+
+    // Fetch latest reading
+    const latestReading = await AirQualityReading.getLatestByDevice(device.deviceId);
+
+    // Return device with reading
+    const response = device.toObject();
+    if (latestReading) {
+      response.latestReading = {
+        timestamp: latestReading.timestamp,
+        aqi: latestReading.aqiData.overall,
+        readings: latestReading.readings,
+        environmental: latestReading.environmental
+      };
+    }
+
+    res.json(response);
+  } catch (error) {
+    console.error("Error fetching device:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get historical data for charts
+router.get("/:deviceId/history", async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    const { hours = 24 } = req.query;
+
+    const history = await AirQualityReading.getHourlyAverages(deviceId, parseInt(hours));
+
+    // Format for frontend charts
+    const formattedHistory = history.map(item => ({
+      timestamp: item.timestamp,
+      time: item._id.hour,
+      pm25: Math.round(item.avgPm25 * 10) / 10,
+      pm10: Math.round((item.avgPm10 || 0) * 10) / 10,
+      o3: Math.round(item.avgO3 * 10) / 10,
+      no2: Math.round(item.avgNo2 * 10) / 10,
+      so2: Math.round(item.avgSo2 * 10) / 10,
+      co: Math.round(item.avgCo * 100) / 100,
+      aqi: Math.round(item.avgAqi)
+    }));
+
+    res.json(formattedHistory);
+  } catch (error) {
+    console.error("Error fetching device history:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create a device
+router.post("/", validateDeviceData, async (req, res) => {
+  try {
+    // Check if deviceId already exists
+    const existingDevice = await Device.findOne({
+      deviceId: req.body.deviceId.toUpperCase(),
+    });
+
+    if (existingDevice) {
+      return res.status(409).json({
+        error: "Device with this deviceId already exists",
+      });
+    }
+
+    const device = new Device(req.body);
+    await device.save();
+
+    res.status(201).json({
+      message: "Device created successfully",
+      device,
+    });
+  } catch (error) {
+    console.error("Error creating device:", error);
+    if (error.code === 11000) {
+      res
+        .status(409)
+        .json({ error: "Device with this deviceId already exists" });
+    } else {
+      res.status(500).json({ error: error.message });
+    }
+  }
+});
+
+// Update a device
+router.put("/:id", validateDeviceData, async (req, res) => {
+  try {
+    const device = await Device.findById(req.params.id);
+
+    if (!device) {
+      return res.status(404).json({ error: "Device not found" });
+    }
+
+    // Update fields
+    const allowedUpdates = [
+      "name",
+      "location",
+      "status",
+      "deviceInfo",
+      "settings",
+      "notes",
+      "isActive",
+    ];
+    
+    // Only update allowed fields if they exist in req.body
+    allowedUpdates.forEach((field) => {
+      if (req.body[field] !== undefined) {
+        if (field === 'location' && typeof req.body.location === 'object') {
+          // Merge location fields to preserve city, state, country, etc.
+          // We can't just do device.location = ... because it's a Mongoose subdoc
+          if (req.body.location.address) device.location.address = req.body.location.address;
+          if (req.body.location.coordinates) {
+            device.location.coordinates = {
+              latitude: req.body.location.coordinates.latitude,
+              longitude: req.body.location.coordinates.longitude
+            };
+          }
+        } else {
+          device[field] = req.body[field];
+        }
+      }
+    });
+
+    // Special handling for nested location updates if partial data is sent (optional, but good for robustness)
+    // The current frontend sends the full location object, so direct assignment above works.
+
+    // deviceId should usually not be changed, but if needed, add it to allowedUpdates or handle separately
+
+    device.updatedAt = new Date();
+    await device.save(); // Triggers pre-save hook for geoLocation
+
+    res.json({
+      message: "Device updated successfully",
+      device,
+    });
+  } catch (error) {
+    console.error("Error updating device:", error);
+    if (error.code === 11000) {
+      res
+        .status(409)
+        .json({ error: "Device with this deviceId already exists" });
+    } else {
+      res.status(500).json({ error: error.message });
+    }
+  }
+});
+
+// Update device status only
+router.patch("/:id/status", async (req, res) => {
+  try {
+    const { status, isActive } = req.body;
+
+    const updateData = { updatedAt: new Date() };
+    if (status) updateData.status = status;
+    if (isActive !== undefined) updateData.isActive = isActive;
+
+    const device = await Device.findByIdAndUpdate(req.params.id, updateData, {
+      new: true,
+      runValidators: true,
+    });
+
+    if (!device) {
+      return res.status(404).json({ error: "Device not found" });
+    }
+
+    res.json({
+      message: "Device status updated successfully",
+      device: {
+        _id: device._id,
+        deviceId: device.deviceId,
+        name: device.name,
+        status: device.status,
+        isActive: device.isActive,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating device status:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Find devices nearby a location
+router.get("/nearby/:longitude/:latitude", async (req, res) => {
+  try {
+    const { longitude, latitude } = req.params;
+    const { maxDistance = 10000 } = req.query; // Default 10km
+
+    const lng = parseFloat(longitude);
+    const lat = parseFloat(latitude);
+
+    if (isNaN(lng) || isNaN(lat)) {
+      return res.status(400).json({ error: "Invalid coordinates" });
+    }
+
+    const devices = await Device.findNearby(lng, lat, parseInt(maxDistance));
+
+    res.json(devices);
+  } catch (error) {
+    console.error("Error finding nearby devices:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete a device
+router.delete("/:id", async (req, res) => {
+  try {
+    const device = await Device.findByIdAndDelete(req.params.id);
+
+    if (!device) {
+      return res.status(404).json({ error: "Device not found" });
+    }
+
+    res.json({
+      message: "Device deleted successfully",
+      deletedDevice: {
+        _id: device._id,
+        deviceId: device.deviceId,
+        name: device.name,
+      },
+    });
+  } catch (error) {
+    console.error("Error deleting device:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Bulk operations
+router.post("/bulk/status", async (req, res) => {
+  try {
+    const { deviceIds, status, isActive } = req.body;
+
+    if (!deviceIds || !Array.isArray(deviceIds)) {
+      return res.status(400).json({ error: "deviceIds array is required" });
+    }
+
+    const updateData = { updatedAt: new Date() };
+    if (status) updateData.status = status;
+    if (isActive !== undefined) updateData.isActive = isActive;
+
+    const result = await Device.updateMany(
+      { _id: { $in: deviceIds } },
+      updateData
+    );
+
+    res.json({
+      message: `Updated ${result.modifiedCount} devices`,
+      modifiedCount: result.modifiedCount,
+    });
+  } catch (error) {
+    console.error("Error bulk updating devices:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+module.exports = router;
