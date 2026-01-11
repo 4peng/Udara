@@ -16,9 +16,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native"
-import MapboxMap from "../../components/MapboxMap"
+import LeafletMap from "../../components/LeafletMap"
 import { useDevicesWithMonitoring } from "../../hooks/useDevicesWithMonitoring"
 import { getAQIColor, getAQIStatus, SIMPLE_AQI_CATEGORIES } from "../../utils/aqiUtils"
+import { getComfortLevel, getComfortLevelColor } from "../../utils/environmentalUtils"
 
 const { width } = Dimensions.get("window")
 
@@ -27,32 +28,6 @@ const DEBUG_MODE = __DEV__
 
 // Auto-refresh interval: 5 minutes (300,000 milliseconds)
 const AUTO_REFRESH_INTERVAL = 5 * 60 * 1000
-
-// Helper functions for environmental analysis
-const getComfortLevel = (temp, humidity) => {
-  if (!temp || !humidity) return 'Unknown'
-  
-  if (temp >= 20 && temp <= 26 && humidity >= 40 && humidity <= 70) {
-    return 'Comfortable'
-  } else if (temp > 30 || humidity > 80) {
-    return 'Uncomfortable'
-  } else if (temp < 18 || humidity < 30) {
-    return 'Too Dry/Cold'
-  } else {
-    return 'Moderate'
-  }
-}
-
-const getComfortLevelColor = (temp, humidity) => {
-  const level = getComfortLevel(temp, humidity)
-  switch (level) {
-    case 'Comfortable': return '#4CAF50'
-    case 'Moderate': return '#FFC107'
-    case 'Uncomfortable': return '#FF5722'
-    case 'Too Dry/Cold': return '#2196F3'
-    default: return '#666'
-  }
-}
 
 export default function HomeScreen() {
   const [currentDate, setCurrentDate] = useState("")
@@ -82,12 +57,10 @@ export default function HomeScreen() {
   // SIMPLE REFRESH when returning from Settings
   useFocusEffect(
     useCallback(() => {
-      console.log("🔄 Home screen focused - triggering simple refresh...")
       
       // Small delay to ensure any navigation state changes are complete
       const timeoutId = setTimeout(() => {
         if (isComponentMounted.current) {
-          console.log("🔄 Home screen focus - refreshing devices")
           forceCompleteReset()
         }
       }, 100)
@@ -119,7 +92,6 @@ export default function HomeScreen() {
   // Auto-refresh functionality - FIXED to only run every 5 minutes
   useEffect(() => {
     const startAutoRefresh = () => {
-      console.log("🔄 Starting auto-refresh - will refresh every 5 minutes")
       
       // Clear existing intervals
       if (autoRefreshInterval.current) {
@@ -136,7 +108,6 @@ export default function HomeScreen() {
       autoRefreshInterval.current = setInterval(() => {
         if (!isComponentMounted.current) return
         
-        console.log("🔄 Auto-refreshing data (5-minute interval)...")
         setIsAutoRefreshing(true)
         forceCompleteReset()
         setLastRefreshTime(new Date())
@@ -159,8 +130,6 @@ export default function HomeScreen() {
           return newTime <= 0 ? AUTO_REFRESH_INTERVAL : newTime
         })
       }, 30000) // Update every 30 seconds instead of every second
-
-      console.log("✅ Auto-refresh intervals started")
     }
 
     // Start auto-refresh when component mounts
@@ -179,37 +148,15 @@ export default function HomeScreen() {
         clearInterval(countdownInterval.current)
         countdownInterval.current = null
       }
-      console.log("🧹 Auto-refresh intervals cleared")
     }
   }, [refreshDevices])
 
-  // Debug logging
-  useEffect(() => {
-    if (DEBUG_MODE) {
-      console.log("🏠 HomeScreen: Component re-rendered")
-      console.log("📊 HomeScreen: State:", {
-        devicesCount: devices.length,
-        monitoredDevicesCount: monitoredDevices.length,
-        loading,
-        error,
-        initialized,
-        monitoringVersion,
-        monitoredDeviceIds: getMonitoredDeviceIds(),
-        lastRefresh: lastRefreshTime.toLocaleTimeString(),
-        nextRefreshIn: Math.ceil(timeUntilNextRefresh / 60000) + "min",
-      })
-    }
-  }, [devices, monitoredDevices, loading, error, initialized, monitoringVersion, getMonitoredDeviceIds, lastRefreshTime, timeUntilNextRefresh])
+  // Debug logging - Removed
 
   // Add safety check for devices - FORCE FRESH CALCULATION
   const safeDevices = Array.isArray(devices) ? devices : []
   const safeMonitoredDevices = useMemo(() => {
     const monitored = Array.isArray(monitoredDevices) ? monitoredDevices : []
-    console.log("🏠 safeMonitoredDevices recalculated:", {
-      monitoredDevicesLength: monitored.length,
-      monitoredDevices: monitored.map(d => ({ id: d.id, name: d.name, location: d.location })),
-      monitoringVersion,
-    })
     return monitored
   }, [monitoredDevices, monitoringVersion])
 
@@ -253,13 +200,11 @@ export default function HomeScreen() {
   }
 
   const handleMapPress = () => {
-    console.log("🗺️ HomeScreen: Map pressed, navigating to map tab")
     router.push("/(tabs)/map")
   }
 
   const handleSensorPress = (sensor: any) => {
     if (sensor && sensor.id) {
-      console.log(`🎯 HomeScreen: Sensor pressed: ${sensor.name} (${sensor.id})`)
       router.push(`/sensor/${sensor.id}`)
     } else {
       console.warn("⚠️ HomeScreen: Invalid sensor pressed:", sensor)
@@ -268,7 +213,6 @@ export default function HomeScreen() {
 
   // FIXED: Manual refresh - keeps functionality but doesn't get stuck
   const handleManualRefresh = async () => {
-    console.log("🔄 HomeScreen: Manual refresh requested")
     
     try {
       // Use refreshDevices and update timing
@@ -282,7 +226,6 @@ export default function HomeScreen() {
         autoRefreshInterval.current = setInterval(() => {
           if (!isComponentMounted.current) return
           
-          console.log("🔄 Auto-refreshing data (5-minute interval)...")
           setIsAutoRefreshing(true)
           forceCompleteReset()
           setLastRefreshTime(new Date())
@@ -308,7 +251,6 @@ export default function HomeScreen() {
         }, 30000)
       }
       
-      console.log("✅ HomeScreen: Manual refresh completed successfully")
     } catch (error) {
       console.error("❌ HomeScreen: Manual refresh failed:", error)
     }
@@ -316,7 +258,6 @@ export default function HomeScreen() {
 
   const toggleDebugInfo = () => {
     setShowDebugInfo(!showDebugInfo)
-    console.log(`🐛 HomeScreen: Debug info ${!showDebugInfo ? "enabled" : "disabled"}`)
   }
 
   const formatTimeUntilRefresh = (timeMs: number): string => {
@@ -414,49 +355,9 @@ export default function HomeScreen() {
   }
 
   const renderMapSection = () => {
-    if (loading) {
-      return (
-        <View style={[styles.mapSection, styles.loadingContainer]}>
-          <ActivityIndicator size="large" color="#4361EE" />
-          <Text style={styles.loadingText}>Loading map...</Text>
-        </View>
-      )
-    }
-
-    if (error) {
-      return (
-        <View style={[styles.mapSection, styles.errorContainer]}>
-          <Ionicons name="warning-outline" size={48} color="#F44336" />
-          <Text style={styles.errorText}>Failed to load map data</Text>
-          <Text style={styles.errorSubtext}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={handleManualRefresh}>
-            <Text style={styles.retryButtonText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
-      )
-    }
-
+    
     // Use monitored devices for home screen map, or all devices if none monitored
     const mapSensors = safeMonitoredDevices.length > 0 ? safeMonitoredDevices : safeDevices
-
-    if (mapSensors.length === 0) {
-      return (
-        <View style={[styles.mapSection, styles.errorContainer]}>
-          <Ionicons name="location-outline" size={48} color="#ccc" />
-          <Text style={styles.errorText}>No sensors to display</Text>
-          <Text style={styles.errorSubtext}>
-            {safeDevices.length === 0 ? "No sensors available" : "No areas being monitored"}
-          </Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => router.push("/(tabs)/settings")}>
-            <Text style={styles.retryButtonText}>{safeDevices.length === 0 ? "Refresh" : "Select Areas"}</Text>
-          </TouchableOpacity>
-        </View>
-      )
-    }
-
-    console.log(
-      `🗺️ HomeScreen: Rendering map with ${mapSensors.length} sensors (${safeMonitoredDevices.length > 0 ? "monitored only" : "all sensors"})`,
-    )
 
     return (
       <View style={styles.mapSection}>
@@ -465,23 +366,32 @@ export default function HomeScreen() {
             {safeMonitoredDevices.length > 0 ? "Monitored Areas" : "All Campus Sensors"}
           </Text>
           <Text style={styles.mapSubtitle}>
-            {mapSensors.length} sensor{mapSensors.length !== 1 ? "s" : ""} shown
+            {loading ? "Updating..." : `${mapSensors.length} sensor${mapSensors.length !== 1 ? "s" : ""} shown`}
           </Text>
         </View>
+        
         <TouchableOpacity style={styles.mapContainer} onPress={handleMapPress}>
-          <MapboxMap
+          <LeafletMap
             sensors={mapSensors}
             onSensorPress={handleSensorPress}
             style={styles.mapView}
-            interactive={false}
           />
+          
           <View style={styles.mapOverlay}>
             <View style={styles.mapOverlayContent}>
               <Text style={styles.mapOverlayText}>Tap to view full map</Text>
               <Ionicons name="expand-outline" size={20} color="#FFFFFF" />
             </View>
           </View>
+
+          {/* Status Overlay */}
+          {loading && (
+             <View style={styles.statusPill}>
+               <ActivityIndicator size="small" color="#4361EE" />
+             </View>
+          )}
         </TouchableOpacity>
+
         <View style={styles.mapLegend}>
           {SIMPLE_AQI_CATEGORIES.map((category, index) => (
             <View key={index} style={styles.legendItem}>
@@ -537,8 +447,6 @@ export default function HomeScreen() {
         </View>
       )
     }
-
-    console.log("🏠 HomeScreen: Rendering monitored areas:", Object.keys(locationGroups))
 
     return (
       <View style={styles.section}>
@@ -606,27 +514,11 @@ export default function HomeScreen() {
               <Ionicons name="bug-outline" size={24} color={showDebugInfo ? "#4361EE" : "#666"} />
             </TouchableOpacity>
           )}
-          <TouchableOpacity style={styles.headerButton} onPress={() => router.push("/(tabs)/settings")}>
-            <Ionicons name="settings-outline" size={24} color="#666" />
-          </TouchableOpacity>
         </View>
       </View>
 
-      {/* Auto-refresh status - Remove the stuck "Refreshing..." state */}
+      {/* Last Updated Status */}
       <View style={styles.refreshStatus}>
-        <View style={styles.refreshStatusLeft}>
-          <Ionicons 
-            name={isAutoRefreshing ? "sync" : "time-outline"} 
-            size={14} 
-            color={isAutoRefreshing ? "#4361EE" : "#666"} 
-          />
-          <Text style={[styles.refreshStatusText, isAutoRefreshing && styles.refreshStatusTextActive]}>
-            {isAutoRefreshing 
-              ? "Refreshing..." 
-              : `Next auto-refresh in ${formatTimeUntilRefresh(timeUntilNextRefresh)}`
-            }
-          </Text>
-        </View>
         <Text style={styles.lastRefreshText}>
           Last updated: {lastRefreshTime.toLocaleTimeString("en-US", {
             hour: "2-digit",
@@ -855,6 +747,8 @@ const styles = StyleSheet.create({
   },
   mapContainer: {
     height: 200,
+    width: '100%',
+    backgroundColor: '#eee', // Placeholder color
     borderRadius: 12,
     overflow: "hidden",
     position: "relative",
@@ -885,6 +779,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
     marginRight: 8,
+  },
+  statusPill: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    padding: 8,
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   mapLegend: {
     flexDirection: "row",

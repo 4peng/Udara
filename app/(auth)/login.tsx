@@ -4,6 +4,8 @@ import { Ionicons } from "@expo/vector-icons"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { Link, router } from "expo-router"
 import { useEffect, useState } from "react"
+import * as WebBrowser from "expo-web-browser"
+import * as Google from "expo-auth-session/providers/google"
 import {
   Alert,
   Image,
@@ -19,6 +21,8 @@ import {
 } from "react-native"
 import { useAuth } from "../../hooks/useAuth"
 
+WebBrowser.maybeCompleteAuthSession();
+
 const REMEMBER_ME_KEY = "@remember_me"
 const SAVED_EMAIL_KEY = "@saved_email"
 
@@ -30,7 +34,37 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
 
-  const { signIn } = useAuth()
+  const { signIn, signInWithGoogle } = useAuth()
+
+  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
+    clientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+  });
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const { id_token } = response.params;
+      handleGoogleSignIn(id_token);
+    }
+  }, [response]);
+
+  const handleGoogleSignIn = async (idToken: string) => {
+    setLoading(true);
+    try {
+      const result = await signInWithGoogle(idToken);
+      if (result.success) {
+        router.replace("/(tabs)");
+      } else {
+        Alert.alert("Google Sign In Failed", result.error);
+      }
+    } catch (error) {
+      console.error("Google Sign In Error:", error);
+      Alert.alert("Error", "An unexpected error occurred during Google Sign In");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Load saved email on component mount
   useEffect(() => {
@@ -183,14 +217,12 @@ export default function LoginScreen() {
           <Text style={styles.orText}>Or continue with</Text>
 
           <View style={styles.socialButtonsContainer}>
-            <TouchableOpacity style={styles.socialButton}>
+            <TouchableOpacity 
+              style={styles.socialButton} 
+              onPress={() => promptAsync()}
+              disabled={!request}
+            >
               <Ionicons name="logo-google" size={24} color="#000" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.socialButton}>
-              <Ionicons name="logo-apple" size={24} color="#000" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.socialButton}>
-              <Ionicons name="logo-facebook" size={24} color="#000" />
             </TouchableOpacity>
           </View>
 

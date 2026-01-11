@@ -111,9 +111,7 @@ export default function LearnScreen() {
 
   const renderHeader = () => (
     <View style={styles.header}>
-      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-        <Ionicons name="chevron-back" size={24} color="#333" />
-      </TouchableOpacity>
+      <View style={{ width: 40 }} /> 
       <Text style={styles.headerTitle}>Learn</Text>
       <TouchableOpacity style={styles.searchButton}>
         <Ionicons name="search-outline" size={24} color="#333" />

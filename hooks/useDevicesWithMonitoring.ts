@@ -3,11 +3,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useDevices } from "./useDevices"
-import { useMonitoring } from "./useMonitoring"
+import { useMonitoringContext } from "../context/MonitoringContext"
+
+import * as Notifications from "expo-notifications"
 
 export const useDevicesWithMonitoring = () => {
   const devicesHook = useDevices()
-  const monitoringHook = useMonitoring()
+  const monitoringHook = useMonitoringContext()
 
   // Add a state to force re-renders when monitoring changes
   const [monitoringVersion, setMonitoringVersion] = useState(0)
@@ -20,10 +22,46 @@ export const useDevicesWithMonitoring = () => {
   // Use refs to track if we've already initialized/updated
   const hasInitialized = useRef(false)
   const lastMonitoredDeviceIds = useRef<string>("")
+  const lastAlertTime = useRef<{ [key: string]: number }>({})
+
+  // 🔹 NEW: Check for hazardous conditions locally and trigger notification
+  useEffect(() => {
+    if (devices.length === 0) return
+
+    const monitoredIds = getMonitoredDeviceIds()
+    
+    devices.forEach(device => {
+      // Only check monitored devices
+      if (!monitoredIds.includes(device.deviceId)) return
+      
+      // Check if AQI is hazardous (>200)
+      if (device.aqi >= 200) {
+        const now = Date.now()
+        const lastTime = lastAlertTime.current[device.deviceId] || 0
+        const cooldown = 60 * 1000 // 1 minute cooldown
+
+        if (now - lastTime > cooldown) {
+          
+          // Schedule local notification
+          Notifications.scheduleNotificationAsync({
+            content: {
+              title: "Hazardous Air Quality Detected!",
+              body: `AQI is ${device.aqi} at ${device.location}. Please take precautions immediately.`,
+              data: { deviceId: device.deviceId, aqi: device.aqi },
+              sound: 'default',
+            },
+            trigger: null, // Send immediately
+          })
+
+          // Update last alert time
+          lastAlertTime.current[device.deviceId] = now
+        }
+      }
+    })
+  }, [devices, initialized, getMonitoredDeviceIds])
 
   // Complete refresh function - resets everything to fresh state
   const forceCompleteReset = useCallback(async () => {
-    console.log("🔄 FORCE COMPLETE RESET - Starting fresh state reload...")
     
     try {
       // 1. Reset all tracking refs
@@ -41,7 +79,6 @@ export const useDevicesWithMonitoring = () => {
       setForceUpdateCounter(prev => prev + 1)
       setMonitoringVersion(prev => prev + 1)
       
-      console.log("✅ FORCE COMPLETE RESET - Fresh state loaded successfully")
     } catch (error) {
       console.error("❌ FORCE COMPLETE RESET - Error during refresh:", error)
     }
@@ -50,7 +87,6 @@ export const useDevicesWithMonitoring = () => {
   // Initialize monitoring areas when devices are loaded (ONCE per reset)
   useEffect(() => {
     if (!devicesLoading && devices.length > 0 && !initialized && !hasInitialized.current) {
-      console.log("🔄 Initializing monitoring with", devices.length, "devices (force counter:", forceUpdateCounter, ")")
       hasInitialized.current = true
       initializeMonitoringAreas(devices)
     }
@@ -64,12 +100,6 @@ export const useDevicesWithMonitoring = () => {
 
       // Only update if the monitored device IDs actually changed
       if (currentIds !== lastMonitoredDeviceIds.current) {
-        console.log("📊 Device monitoring status changed:", {
-          old: lastMonitoredDeviceIds.current,
-          new: currentIds,
-          ids: monitoredDeviceIds,
-          forceCounter: forceUpdateCounter
-        })
         lastMonitoredDeviceIds.current = currentIds
         updateDeviceMonitoringStatus(monitoredDeviceIds)
 
@@ -82,7 +112,6 @@ export const useDevicesWithMonitoring = () => {
   // Get monitored devices - ONLY return devices that are actually being monitored
   const monitoredDevices = useMemo(() => {
     if (!initialized) {
-      console.log("🔍 Monitoring not initialized, returning empty array")
       return []
     }
 
@@ -90,21 +119,10 @@ export const useDevicesWithMonitoring = () => {
     const currentMonitoredIds = getMonitoredDeviceIds()
     
     if (currentMonitoredIds.length === 0) {
-      console.log("🔍 No areas are being monitored, returning empty array")
       return []
     }
 
     const filtered = devices.filter((device) => currentMonitoredIds.includes(device.deviceId))
-
-    console.log("🔍 FRESH monitored devices calculation:", {
-      totalDevices: devices.length,
-      currentMonitoredIds,
-      filteredCount: filtered.length,
-      filtered: filtered.map((d) => ({ id: d.id, name: d.name, location: d.location })),
-      version: monitoringVersion,
-      forceCounter: forceUpdateCounter,
-      areasHash: monitoringAreas.map(a => `${a.location}:${a.enabled}`).join(',')
-    })
 
     return filtered
   }, [devices, initialized, monitoringAreas.map(a => `${a.location}:${a.enabled}`).join(','), monitoringVersion, forceUpdateCounter])

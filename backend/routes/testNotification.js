@@ -13,7 +13,10 @@ router.post('/send', async (req, res) => {
   }
 
   try {
-    const user = await User.findOne({ userId });
+    const user = await User.findOne({ 
+      $or: [{ userId: userId }, { clerkUserId: userId }] 
+    });
+    
     if (!user || !user.pushTokens || user.pushTokens.length === 0) {
       return res.status(404).json({ error: 'User has no registered push tokens' });
     }

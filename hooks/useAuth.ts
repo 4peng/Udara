@@ -7,6 +7,8 @@ import {
     sendPasswordResetEmail,
     signInWithEmailAndPassword,
     signOut,
+    GoogleAuthProvider,
+    signInWithCredential,
 } from "firebase/auth"
 import { useEffect, useState } from "react"
 import { auth } from "../config/firebase"
@@ -30,6 +32,16 @@ export const useAuth = () => {
       return { success: true }
     } catch (error: any) {
       return { success: false, error: error.message }
+    }
+  }
+
+  const signInWithGoogle = async (idToken: string) => {
+    try {
+      const credential = GoogleAuthProvider.credential(idToken);
+      await signInWithCredential(auth, credential);
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message };
     }
   }
 
@@ -64,6 +76,7 @@ export const useAuth = () => {
     user,
     loading,
     signIn,
+    signInWithGoogle,
     signUp,
     logout,
     resetPassword,

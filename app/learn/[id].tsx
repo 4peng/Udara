@@ -1,7 +1,7 @@
 "use client"
 
 import { Ionicons } from "@expo/vector-icons"
-import { router, useLocalSearchParams } from "expo-router"
+import { router, useLocalSearchParams, Stack } from "expo-router"
 import { Image, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native"
 
 // Mock article content
@@ -43,6 +43,187 @@ The AQI is calculated for five major air pollutants regulated by the Clean Air A
 Check the daily AQI forecast in your area and plan your activities accordingly. When AQI values are above 100, air quality is considered unhealthy for sensitive groups, and you should consider limiting prolonged outdoor exertion.
     `,
   },
+  2: {
+    title: "Indoor Air Quality Guide",
+    subtitle: "Essential tips for maintaining clean indoor air in your home and workplace",
+    readTime: "4 min read",
+    image: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&h=200&fit=crop",
+    content: `
+Many people don't realize that indoor air can be significantly more polluted than outdoor air. Since we spend about 90% of our time indoors, maintaining good indoor air quality (IAQ) is crucial for health.
+
+## Common Indoor Pollutants
+
+- **Volatile Organic Compounds (VOCs)**: Emitted from paints, solvents, and cleaning supplies.
+- **Dust Mites and Mold**: Common allergens that thrive in humid environments.
+- **Pet Dander**: Fur and skin flakes from household pets.
+- **Carbon Monoxide**: A colorless, odorless gas from faulty combustion appliances.
+
+## Tips for Improvement
+
+**Ventilation is Key**: Open windows regularly to allow fresh air to circulate, unless outdoor air quality is poor.
+
+**Control Humidity**: Keep indoor humidity between 30-50% to prevent mold growth and discourage dust mites.
+
+**Use Air Purifiers**: HEPA filters can effectively remove particles like dust, pollen, and pet dander.
+
+**Keep it Clean**: Regular vacuuming with a HEPA-filter vacuum and dusting reduces airborne allergens.
+
+**Plants**: Some houseplants, like spider plants and peace lilies, can help filter out certain pollutants naturally.
+    `,
+  },
+  3: {
+    title: "Air Pollution Sources",
+    subtitle: "Common sources of air pollution and their impact on health",
+    readTime: "6 min read",
+    image: "https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?w=400&h=200&fit=crop",
+    content: `
+Air pollution comes from many different sources, both natural and man-made. Understanding these sources is the first step in reducing exposure.
+
+## Mobile Sources
+
+Vehicles such as cars, buses, planes, trucks, and trains are the most common source of air pollution. They release nitrogen oxides and particulate matter, which are major contributors to smog and poor respiratory health.
+
+## Stationary Sources
+
+Power plants, oil refineries, industrial facilities, and factories emit large quantities of pollutants. These include sulfur dioxide and particulate matter.
+
+## Area Sources
+
+Agricultural areas, cities, and wood-burning fireplaces are considered "area sources." While individually small, collectively they contribute significantly to local pollution levels.
+
+## Natural Sources
+
+- **Wind-blown dust**: From dry regions and construction sites.
+- **Wildfires**: Release massive amounts of smoke and particulate matter.
+- **Volcanoes**: Emit sulfur dioxide and ash.
+
+## Reducing Your Contribution
+
+Simple actions like carpooling, using public transport, conserving energy at home, and avoiding burning trash can help reduce overall pollution levels.
+    `,
+  },
+  4: {
+    title: "Protective Measures",
+    subtitle: "How to protect yourself from poor air quality",
+    readTime: "3 min read",
+    image: "https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=400&h=200&fit=crop",
+    content: `
+When air quality reaches unhealthy levels, taking immediate protective steps can prevent short-term symptoms and long-term health issues.
+
+## Check Daily Forecasts
+
+Make it a habit to check the Air Quality Index (AQI) daily. Apps like Udara provide real-time updates and alerts for your location.
+
+## Limit Outdoor Activities
+
+When AQI is high (above 100 or 150 depending on your sensitivity):
+- Reduce the intensity of outdoor activities (walk instead of run).
+- Shorten the duration of your outdoor workout.
+- Reschedule activities for early morning or late evening when pollution levels might be lower (though ozone is often lower in the morning, particles can be high).
+
+## Create a Clean Room
+
+Designate a room in your home with few windows and doors as a "clean room." Run an air purifier in this room and spend time there during pollution episodes.
+
+## Wear Masks
+
+If you must be outside during hazardous conditions, N95 or KN95 respirators can filter out fine particles (PM2.5). Cloth masks and surgical masks generally provide little protection against air pollution.
+    `,
+  },
+  5: {
+    title: "Air Quality Testing",
+    subtitle: "Guide to testing and monitoring air quality in your environment",
+    readTime: "5 min read",
+    image: "https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?w=400&h=200&fit=crop",
+    content: `
+Monitoring the air you breathe is empowering. Here's how you can test and track air quality in your immediate environment.
+
+## Consumer Air Quality Monitors
+
+Devices like the ones connected to Udara measure particulate matter (PM2.5), VOCs, temperature, and humidity. Look for monitors that:
+- Use laser scattering technology for PM2.5.
+- Provide real-time data connectivity.
+- Have been validated or reviewed by independent third parties.
+
+## Professional Testing
+
+For specific concerns like mold, radon, or asbestos, professional testing is recommended. Professionals use specialized equipment and lab analysis to identify contaminants that consumer devices cannot detect.
+
+## DIY Observation
+
+Simple signs can indicate poor air quality:
+- Condensation on windows (high humidity).
+- Lingering odors.
+- Visible dust buildup on surfaces quickly after cleaning.
+- Health symptoms like headaches or irritation that improve when you leave the building.
+
+## Interpreting Data
+
+Don't panic over short-term spikes (like from cooking). Look for long-term trends and persistent high levels to identify sources you can control.
+    `,
+  },
+  6: {
+    title: "Seasonal Air Quality Changes",
+    subtitle: "How air quality varies throughout the year and what to expect",
+    readTime: "4 min read",
+    image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=200&fit=crop",
+    content: `
+Air quality is not static; it fluctuates with the seasons due to changes in weather patterns and human activities.
+
+## Winter
+
+**Inversions**: Cold air near the ground can get trapped by a layer of warm air above, holding pollutants close to the surface.
+**Heating**: Wood burning and increased energy use for heating contribute to higher particulate matter levels.
+
+## Spring
+
+**Allergens**: Tree and grass pollens are at their peak, affecting those with allergies and asthma.
+**Wind**: Windy conditions can transport dust and pollutants over long distances.
+
+## Summer
+
+**Ozone**: Sunlight and heat react with emissions from vehicles and industry to form ground-level ozone, a powerful respiratory irritant.
+**Wildfires**: Heat and drought increase the risk of wildfires, which can degrade air quality across entire continents.
+
+## Autumn
+
+**Stagnation**: Calm weather can lead to pollutant buildup.
+**Leaf Burning**: In some areas, burning yard waste releases smoke and particles.
+
+## Preparation
+
+Knowing these patterns helps you prepare—like ensuring you have allergy medication in spring or checking ozone forecasts in summer.
+    `,
+  },
+  7: {
+    title: "Air Quality and Exercise",
+    subtitle: "Best practices for outdoor activities during different air quality conditions",
+    readTime: "6 min read",
+    image: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=200&fit=crop",
+    content: `
+Exercise is vital for health, but exercising in polluted air can be counterproductive. During physical activity, you breathe deeper and faster, inhaling more pollutants directly into your lungs.
+
+## When to Exercise Outdoors
+
+- **AQI 0-50 (Good)**: Ideal conditions for all outdoor activities.
+- **AQI 51-100 (Moderate)**: Generally safe, but unusually sensitive people should consider reducing prolonged heavy exertion.
+
+## When to Be Cautious
+
+- **AQI 101-150 (Unhealthy for Sensitive Groups)**: Adults with lung disease, older adults, and children should reduce prolonged heavy exertion. Healthy adults can likely continue but should monitor for symptoms.
+- **Traffic**: Avoid running or cycling near busy roads where pollution concentrations are highest.
+
+## When to Move Indoors
+
+- **AQI 151+ (Unhealthy)**: Everyone should avoid prolonged or heavy exertion outdoors. Move your workout to a gym, home, or indoor track.
+
+## Tips for Safer Workouts
+
+- **Time of Day**: Ozone is usually lower in the morning.
+- **Location**: Exercise in parks or green spaces away from highways.
+- **Listen to Your Body**: If you feel chest tightness, coughing, or difficulty breathing, stop immediately.
+    `,
+  },
 }
 
 export default function ArticleScreen() {
@@ -69,12 +250,7 @@ export default function ArticleScreen() {
         <Ionicons name="chevron-back" size={24} color="#333" />
       </TouchableOpacity>
       <View style={styles.headerActions}>
-        <TouchableOpacity style={styles.headerButton}>
-          <Ionicons name="bookmark-outline" size={24} color="#333" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.headerButton}>
-          <Ionicons name="share-outline" size={24} color="#333" />
-        </TouchableOpacity>
+        {/* Buttons removed as requested */}
       </View>
     </View>
   )
@@ -107,6 +283,7 @@ export default function ArticleScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <Stack.Screen options={{ headerShown: false }} />
       <StatusBar barStyle="dark-content" />
       {renderHeader()}
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
