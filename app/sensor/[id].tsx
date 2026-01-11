@@ -17,89 +17,80 @@ import {
 } from "react-native"
 import { LineChart } from "react-native-chart-kit"
 import { useDeviceDetail } from "../../hooks/useDeviceDetail"
+import { useAuth } from "../../hooks/useAuth"
+import { usePushNotifications } from "../../hooks/usePushNotifications"
+import { API_CONFIG, apiRequest } from "../../config/api"
+import { getAQIColor, getAQIStatus } from "../../utils/aqiUtils"
+import { getComfortLevel, getComfortLevelColor, calculateHeatIndex } from "../../utils/environmentalUtils"
 
 const { width } = Dimensions.get("window")
-
-// Helper functions for environmental analysis
-const getComfortLevel = (temp, humidity) => {
-  if (!temp || !humidity) return 'Unknown'
-  
-  if (temp >= 20 && temp <= 26 && humidity >= 40 && humidity <= 70) {
-    return 'Comfortable'
-  } else if (temp > 30 || humidity > 80) {
-    return 'Uncomfortable'
-  } else if (temp < 18 || humidity < 30) {
-    return 'Too Dry/Cold'
-  } else {
-    return 'Moderate'
-  }
-}
-
-const getComfortLevelColor = (temp, humidity) => {
-  const level = getComfortLevel(temp, humidity)
-  switch (level) {
-    case 'Comfortable': return '#4CAF50'
-    case 'Moderate': return '#FFC107'
-    case 'Uncomfortable': return '#FF5722'
-    case 'Too Dry/Cold': return '#2196F3'
-    default: return '#666'
-  }
-}
-
-const calculateHeatIndex = (temp, humidity) => {
-  if (!temp || !humidity) return 'N/A'
-  
-  // Simplified heat index calculation
-  if (temp < 27) return temp.toFixed(1)
-  
-  const c1 = -8.78469475556
-  const c2 = 1.61139411
-  const c3 = 2.33854883889
-  const c4 = -0.14611605
-  const c5 = -0.012308094
-  const c6 = -0.0164248277778
-  const c7 = 0.002211732
-  const c8 = 0.00072546
-  const c9 = -0.000003582
-  
-  const heatIndex = c1 + (c2 * temp) + (c3 * humidity) + 
-                   (c4 * temp * humidity) + (c5 * temp * temp) + 
-                   (c6 * humidity * humidity) + (c7 * temp * temp * humidity) + 
-                   (c8 * temp * humidity * humidity) + (c9 * temp * temp * humidity * humidity)
-  
-  return Math.max(temp, heatIndex).toFixed(1)
-}
 
 export default function SensorDetailScreen() {
   const { id } = useLocalSearchParams()
   const [selectedPeriod, setSelectedPeriod] = useState("24h")
-  const [isFavorite, setIsFavorite] = useState(false)
+  const [isSubscribed, setIsSubscribed] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
 
+  const { user } = useAuth()
+  usePushNotifications() // Ensure token is registered
+
   const { device, loading, error, refetch, fetchHistoricalData, chartData } = useDeviceDetail(id as string)
+
+  // Check subscription status
+  useEffect(() => {
+    if (user && id) {
+      const url = `${API_CONFIG.BASE_URL}/api/notifications/subscriptions/${user.uid}`;
+      apiRequest(url)
+        .then(async (res) => {
+           if (res.status === 404) return { success: true, subscriptions: [] }; // Handle 404 as no subscriptions
+           if (!res.ok) throw new Error(`Status ${res.status}`);
+           return res.json();
+        })
+        .then(data => {
+            if (data.success && data.subscriptions.some((sub: any) => sub.deviceId === id)) {
+                setIsSubscribed(true)
+            }
+        })
+        .catch(err => {
+            console.error("Error checking subscription:", err);
+        })
+    }
+  }, [user, id])
+
+  const handleToggleSubscription = async () => {
+    if (!user) {
+        alert("Please log in to save locations and get alerts.")
+        return
+    }
+    
+    const endpoint = isSubscribed ? 'unsubscribe' : 'subscribe'
+    try {
+        const res = await fetch(`${API_CONFIG.BASE_URL}/api/notifications/${endpoint}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.uid, deviceId: id })
+        })
+        const data = await res.json()
+        if (data.success) {
+            setIsSubscribed(!isSubscribed)
+        } else {
+            alert("Failed to update subscription")
+        }
+    } catch (error) {
+        console.error("Error toggling subscription:", error)
+        alert("Error connecting to server")
+    }
+  }
 
   // Set the screen title dynamically when device data loads
   useEffect(() => {
     if (device) {
-      // This will update the tab/screen title
       router.setParams({ 
         title: device.name || `Sensor ${id}`,
         subtitle: device.location 
       })
     }
   }, [device, id])
-
-  const getAQIColor = (aqi: number) => {
-    if (aqi <= 100) return "#4CAF50"
-    if (aqi <= 200) return "#FFC107"
-    return "#F44336"
-  }
-
-  const getAQIStatus = (aqi: number) => {
-    if (aqi <= 100) return "Healthy"
-    if (aqi <= 200) return "Moderate"
-    return "Hazardous"
-  }
 
   const handleRefresh = async () => {
     setRefreshing(true)
@@ -110,10 +101,24 @@ export default function SensorDetailScreen() {
   const handlePeriodChange = async (period: string) => {
     setSelectedPeriod(period)
     if (device) {
-      console.log("Fetching data for period:", period)
       setRefreshing(true)
       await fetchHistoricalData(period)
       setRefreshing(false)
+    }
+  }
+
+  const formatLastUpdated = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        hour: 'numeric', 
+        minute: 'numeric',
+        hour12: true 
+      });
+    } catch (e) {
+      return dateString;
     }
   }
 
@@ -132,8 +137,8 @@ export default function SensorDetailScreen() {
         <TouchableOpacity style={styles.headerButton} onPress={handleRefresh} disabled={refreshing}>
           <Ionicons name="refresh-outline" size={24} color={refreshing ? "#ccc" : "#333"} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.headerButton} onPress={() => setIsFavorite(!isFavorite)}>
-          <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={24} color={isFavorite ? "#FF6B6B" : "#333"} />
+        <TouchableOpacity style={styles.headerButton} onPress={handleToggleSubscription}>
+          <Ionicons name={isSubscribed ? "heart" : "heart-outline"} size={24} color={isSubscribed ? "#FF6B6B" : "#333"} />
         </TouchableOpacity>
       </View>
     </View>
@@ -184,43 +189,12 @@ export default function SensorDetailScreen() {
           <Text style={[styles.aqiStatus, { color }]}>{status}</Text>
         </View>
         <Text style={styles.lastUpdated}>Last updated</Text>
-        <Text style={styles.updateTime}>{device.lastUpdated}</Text>
+        <Text style={styles.updateTime}>{formatLastUpdated(device.lastUpdated)}</Text>
       </View>
     )
   }
 
-  // UPDATED: Enhanced environmental data display with averages
-  const renderEnvironmentalData = () => (
-    <View style={styles.environmentalSection}>
-      <View style={styles.envItem}>
-        <Ionicons name="thermometer-outline" size={16} color="#666" />
-        <Text style={styles.envLabel}>Temperature</Text>
-        <Text style={styles.envValue}>{device.temperature}</Text>
-        {device.environmental && (
-          <Text style={styles.envAverage}>
-            24h avg: {device.environmental.average24h.temperature}°C
-          </Text>
-        )}
-      </View>
-      <View style={styles.envItem}>
-        <Ionicons name="water-outline" size={16} color="#666" />
-        <Text style={styles.envLabel}>Humidity</Text>
-        <Text style={styles.envValue}>{device.humidity}</Text>
-        {device.environmental && (
-          <Text style={styles.envAverage}>
-            24h avg: {device.environmental.average24h.humidity}%
-          </Text>
-        )}
-      </View>
-      <View style={styles.envItem}>
-        <Ionicons name="location-outline" size={16} color="#666" />
-        <Text style={styles.envLabel}>Location</Text>
-        <Text style={styles.envValue}>{device.location}</Text>
-      </View>
-    </View>
-  )
-
-  // NEW: Environmental details section
+  // Environmental details section (Cards)
   const renderEnvironmentalDetails = () => {
     if (!device.environmental) return null
 
@@ -229,6 +203,10 @@ export default function SensorDetailScreen() {
     const comfortLevel = getComfortLevel(currentTemp, currentHumidity)
     const comfortColor = getComfortLevelColor(currentTemp, currentHumidity)
     const heatIndex = calculateHeatIndex(currentTemp, currentHumidity)
+
+    // Calculate chart widths
+    const tempWidth = Math.min(100, Math.max(0, ((currentTemp || 0) / 50) * 100)); // Assumes 0-50 range
+    const humidWidth = Math.min(100, Math.max(0, (currentHumidity || 0))); // 0-100 range
 
     return (
       <View style={styles.environmentalDetailsSection}>
@@ -241,10 +219,10 @@ export default function SensorDetailScreen() {
               <Text style={styles.environmentalCardTitle}>Temperature</Text>
             </View>
             <Text style={styles.environmentalCardValue}>
-              {currentTemp || 'N/A'}°C
+              {currentTemp !== undefined ? `${currentTemp.toFixed(1)}°C` : 'N/A'}
             </Text>
             <Text style={styles.environmentalCardSubtext}>
-              24h average: {device.environmental.average24h.temperature || 'N/A'}°C
+              24h avg: {device.environmental.average24h.temperature !== undefined ? `${device.environmental.average24h.temperature.toFixed(1)}°C` : 'N/A'}
             </Text>
             <View style={styles.environmentalCardChart}>
               <View 
@@ -252,7 +230,7 @@ export default function SensorDetailScreen() {
                   styles.environmentalBar, 
                   { 
                     backgroundColor: '#FF6B6B',
-                    width: `${Math.min(100, ((currentTemp || 25) / 35) * 100)}%`
+                    width: `${tempWidth}%`
                   }
                 ]} 
               />
@@ -265,10 +243,10 @@ export default function SensorDetailScreen() {
               <Text style={styles.environmentalCardTitle}>Humidity</Text>
             </View>
             <Text style={styles.environmentalCardValue}>
-              {currentHumidity || 'N/A'}%
+              {currentHumidity !== undefined ? `${currentHumidity.toFixed(1)}%` : 'N/A'}
             </Text>
             <Text style={styles.environmentalCardSubtext}>
-              24h average: {device.environmental.average24h.humidity || 'N/A'}%
+              24h avg: {device.environmental.average24h.humidity !== undefined ? `${device.environmental.average24h.humidity.toFixed(1)}%` : 'N/A'}
             </Text>
             <View style={styles.environmentalCardChart}>
               <View 
@@ -276,7 +254,7 @@ export default function SensorDetailScreen() {
                   styles.environmentalBar, 
                   { 
                     backgroundColor: '#4ECDC4',
-                    width: `${Math.min(100, ((currentHumidity || 65) / 100) * 100)}%`
+                    width: `${humidWidth}%`
                   }
                 ]} 
               />
@@ -295,7 +273,7 @@ export default function SensorDetailScreen() {
           <View style={styles.trendItem}>
             <Text style={styles.trendLabel}>Heat Index</Text>
             <Text style={styles.trendValue}>
-              {heatIndex}°C
+              {heatIndex !== undefined ? `${heatIndex}°C` : 'N/A'}
             </Text>
           </View>
         </View>
@@ -375,59 +353,19 @@ export default function SensorDetailScreen() {
           withOuterLines={false}
           withVerticalLines={false}
           withHorizontalLines={true}
+          // Hide some x-labels to prevent overcrowding
+          formatXLabel={(label) => {
+             // Only show every 3rd label or so if there are many points
+             // But react-native-chart-kit doesn't have a direct 'step' prop for x-axis
+             // We handle this by passing empty strings in data generation, OR
+             // we accept they are long. The user said numbers are too long.
+             // We will try to shorten them in the hook data generation.
+             return label;
+          }}
         />
       </View>
     )
   }
-
-  const renderPollutantDetails = () => (
-    <View style={styles.pollutantSection}>
-      <Text style={styles.sectionTitle}>Pollutant Details</Text>
-      {Object.entries(device.pollutants).map(([key, pollutant]) => (
-        <View key={key} style={styles.pollutantItem}>
-          <View style={styles.pollutantHeader}>
-            <View style={styles.pollutantNameContainer}>
-              <Text style={styles.pollutantName}>{key.toUpperCase()}</Text>
-              <Text style={styles.pollutantUnit}>({pollutant.unit})</Text>
-            </View>
-            <Text style={[styles.pollutantCurrent, { color: pollutant.color }]}>{pollutant.current}</Text>
-          </View>
-          <Text style={styles.pollutantAverage}>
-            24h average: {pollutant.average24h} {pollutant.unit}
-          </Text>
-          <View style={styles.pollutantChart}>
-            <View
-              style={[
-                styles.pollutantLine,
-                {
-                  backgroundColor: pollutant.color,
-                  width: `${Math.min(100, (pollutant.current / Math.max(pollutant.current, pollutant.average24h)) * 100)}%`,
-                },
-              ]}
-            />
-          </View>
-        </View>
-      ))}
-    </View>
-  )
-
-  const renderDataInfo = () => (
-    <View style={styles.dataInfoSection}>
-      <Text style={styles.sectionTitle}>Data Information</Text>
-      <View style={styles.dataInfoItem}>
-        <Ionicons name="server-outline" size={16} color="#666" />
-        <Text style={styles.dataInfoText}>Device ID: {device.deviceId}</Text>
-      </View>
-      <View style={styles.dataInfoItem}>
-        <Ionicons name="time-outline" size={16} color="#666" />
-        <Text style={styles.dataInfoText}>Last reading: {device.lastUpdated}</Text>
-      </View>
-      <View style={styles.dataInfoItem}>
-        <Ionicons name="analytics-outline" size={16} color="#666" />
-        <Text style={styles.dataInfoText}>Data source: Real-time sensor</Text>
-      </View>
-    </View>
-  )
 
   return (
     <SafeAreaView style={styles.container}>
@@ -435,12 +373,9 @@ export default function SensorDetailScreen() {
       {renderHeader()}
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {renderAQIDisplay()}
-        {renderEnvironmentalData()}
         {renderEnvironmentalDetails()}
         {renderTimePeriodSelector()}
         {renderChart()}
-        {renderPollutantDetails()}
-        {renderDataInfo()}
       </ScrollView>
     </SafeAreaView>
   )

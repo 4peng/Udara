@@ -287,8 +287,9 @@ router.post('/register', async (req, res) => {
 
   try {
     // Add token to user's pushTokens array if not exists
+    // query by userId OR clerkUserId to handle both internal ID and auth provider ID
     await User.updateOne(
-      { userId: userId },
+      { $or: [{ userId: userId }, { clerkUserId: userId }] },
       { $addToSet: { pushTokens: token } }
     );
 

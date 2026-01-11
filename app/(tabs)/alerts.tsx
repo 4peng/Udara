@@ -4,71 +4,42 @@ import { Ionicons } from "@expo/vector-icons"
 import { useState } from "react"
 import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native"
 import { getAQIColor, getAQIStatus } from "../../utils/aqiUtils"
+import { useNotificationContext, UINotification } from "../../context/NotificationContext"
 
-const alertTypes = ["All", "Hazardous", "Moderate", "Healthy"]
-
-const mockAlerts = [
-  {
-    id: 1,
-    time: "2:30 PM",
-    location: "Engineering Building",
-    aqi: 301,
-    level: getAQIStatus(301),
-    message: "Air quality levels have reached hazardous levels. Avoid outdoor activities.",
-    date: "Today",
-    color: getAQIColor(301),
-    icon: "warning",
-  },
-  {
-    id: 2,
-    time: "11:45 AM",
-    location: "Student Center",
-    aqi: 180,
-    level: getAQIStatus(180),
-    message: "Air quality is moderate. Sensitive individuals should limit outdoor exposure.",
-    date: "Today",
-    color: getAQIColor(180),
-    icon: "warning",
-  },
-  {
-    id: 3,
-    time: "4:15 PM",
-    location: "Library",
-    aqi: 250,
-    level: getAQIStatus(250),
-    message: "Dangerous air quality levels detected. Indoor activities advised.",
-    date: "Yesterday",
-    color: getAQIColor(250),
-    icon: "warning",
-  },
-  {
-    id: 4,
-    time: "2:10 PM",
-    location: "Science Building",
-    aqi: 85,
-    level: getAQIStatus(85),
-    message: "Air quality is healthy. Safe for all outdoor activities.",
-    date: "Yesterday",
-    color: getAQIColor(85),
-    icon: "checkmark-circle",
-  },
-]
+const alertTypes = ["All", "Unhealthy", "Moderate", "Healthy"]
 
 export default function AlertsScreen() {
+  const { notifications, clearNotifications } = useNotificationContext()
   const [selectedFilter, setSelectedFilter] = useState("All")
 
   const getFilteredAlerts = () => {
-    if (selectedFilter === "All") return mockAlerts
-    return mockAlerts.filter((alert) => alert.level === selectedFilter)
+    if (selectedFilter === "All") return notifications
+    return notifications.filter((alert) => alert.level === selectedFilter)
   }
 
-  const groupAlertsByDate = (alerts: typeof mockAlerts) => {
-    const grouped: { [key: string]: typeof mockAlerts } = {}
+  const getRelativeDateLabel = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    if (date.toDateString() === now.toDateString()) {
+      return "Today";
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return "Yesterday";
+    } else {
+      return date.toLocaleDateString();
+    }
+  };
+
+  const groupAlertsByDate = (alerts: UINotification[]) => {
+    const grouped: { [key: string]: UINotification[] } = {}
     alerts.forEach((alert) => {
-      if (!grouped[alert.date]) {
-        grouped[alert.date] = []
+      const dateLabel = getRelativeDateLabel(alert.rawDate);
+      if (!grouped[dateLabel]) {
+        grouped[dateLabel] = []
       }
-      grouped[alert.date].push(alert)
+      grouped[dateLabel].push(alert)
     })
     return grouped
   }
@@ -79,8 +50,8 @@ export default function AlertsScreen() {
         <Ionicons name="chevron-back" size={24} color="#333" />
       </TouchableOpacity>
       <Text style={styles.headerTitle}>Notification History</Text>
-      <TouchableOpacity style={styles.filterButton}>
-        <Ionicons name="options-outline" size={24} color="#333" />
+      <TouchableOpacity style={styles.filterButton} onPress={clearNotifications}>
+        <Ionicons name="trash-outline" size={24} color="#333" />
       </TouchableOpacity>
     </View>
   )
@@ -101,7 +72,7 @@ export default function AlertsScreen() {
     </View>
   )
 
-  const renderAlertCard = (alert: (typeof mockAlerts)[0]) => (
+  const renderAlertCard = (alert: UINotification) => (
     <TouchableOpacity key={alert.id} style={styles.alertCard}>
       <View style={styles.alertHeader}>
         <View style={styles.alertTimeContainer}>
@@ -125,6 +96,16 @@ export default function AlertsScreen() {
 
   const renderAlertsByDate = () => {
     const filteredAlerts = getFilteredAlerts()
+    
+    if (filteredAlerts.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="notifications-off-outline" size={48} color="#ccc" />
+          <Text style={styles.emptyText}>No notifications found</Text>
+        </View>
+      )
+    }
+
     const groupedAlerts = groupAlertsByDate(filteredAlerts)
 
     return Object.entries(groupedAlerts).map(([date, alerts]) => (
@@ -279,5 +260,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
     lineHeight: 20,
+  },
+  emptyContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 100,
+  },
+  emptyText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: "#999",
   },
 })

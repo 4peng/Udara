@@ -1,11 +1,10 @@
-// hooks/useMonitoring.ts
 "use client"
 
+import * as SecureStore from "expo-secure-store"
 import { useCallback, useState } from "react"
-import { MMKV } from "react-native-mmkv"
-
-// Initialize MMKV storage
-const storage = new MMKV()
+import { Alert } from "react-native"
+import { useAuth } from "./useAuth"
+import { API_CONFIG, apiRequest, buildApiUrl } from "../config/api"
 
 const MONITORING_AREAS_KEY = "monitoring_areas"
 
@@ -13,50 +12,79 @@ export interface MonitoringArea {
   location: string
   deviceCount: number
   enabled: boolean
-  devices: string[] // Array of device IDs in this location
+  devices: string[]
 }
 
 export const useMonitoring = () => {
   const [monitoringAreas, setMonitoringAreas] = useState<MonitoringArea[]>([])
   const [loading, setLoading] = useState(true)
   const [initialized, setInitialized] = useState(false)
+  const { user } = useAuth()
 
-  // Load monitoring preferences from MMKV
-  const loadMonitoringPreferences = () => {
+  // 🔹 Load preferences from SecureStore
+  const loadMonitoringPreferences = async () => {
     try {
-      const stored = storage.getString(MONITORING_AREAS_KEY)
+      const stored = await SecureStore.getItemAsync(MONITORING_AREAS_KEY)
       if (stored) {
         const preferences = JSON.parse(stored)
-        console.log("✅ Loaded monitoring preferences from MMKV:", preferences)
         return preferences
       }
     } catch (error) {
-      console.error("❌ Error loading monitoring preferences from MMKV:", error)
+      console.error("❌ Error loading monitoring preferences from SecureStore:", error)
     }
     return {}
   }
 
-  // Save monitoring preferences to MMKV
-  const saveMonitoringPreferences = (areas: MonitoringArea[]) => {
+  // 🔹 Save preferences to SecureStore
+  const saveMonitoringPreferences = async (areas: MonitoringArea[]) => {
     try {
       const preferences: { [key: string]: boolean } = {}
       areas.forEach((area) => {
         preferences[area.location] = area.enabled
       })
-      storage.set(MONITORING_AREAS_KEY, JSON.stringify(preferences))
-      console.log("💾 Saved monitoring preferences to MMKV:", preferences)
+      await SecureStore.setItemAsync(MONITORING_AREAS_KEY, JSON.stringify(preferences))
     } catch (error) {
-      console.error("❌ Error saving monitoring preferences to MMKV:", error)
+      console.error("❌ Error saving monitoring preferences to SecureStore:", error)
     }
   }
 
-  // Initialize monitoring areas from devices
+  // 🔹 Update Backend Subscriptions
+  const updateBackendSubscriptions = async (deviceIds: string[], subscribe: boolean) => {
+    if (!user) {
+      return
+    }
+
+    try {
+      const endpoint = subscribe 
+        ? API_CONFIG.ENDPOINTS.NOTIFICATIONS.SUBSCRIBE 
+        : API_CONFIG.ENDPOINTS.NOTIFICATIONS.UNSUBSCRIBE
+
+      const promises = deviceIds.map(deviceId => 
+        apiRequest(buildApiUrl(endpoint), {
+          method: "POST",
+          body: JSON.stringify({
+            userId: user.uid,
+            deviceId: deviceId
+          })
+        }).catch(err => {
+          console.error(`❌ Failed to ${subscribe ? 'subscribe' : 'unsubscribe'} ${deviceId}:`, err);
+          Alert.alert("Subscription Error", `Failed to update settings for device ${deviceId}. Please try again.`);
+        })
+      )
+
+      await Promise.all(promises)
+    } catch (error) {
+      console.error("❌ Error updating backend subscriptions:", error)
+      Alert.alert("Error", "Failed to update notification subscriptions.");
+    }
+  }
+
+  // 🔹 Initialize monitoring areas from devices
   const initializeMonitoringAreas = useCallback(async (devices: any[]) => {
     try {
-      console.log("🔄 Initializing monitoring areas with", devices.length, "devices")
       setLoading(true)
 
-      // Group devices by location to get available areas
+      // Group devices by location
       const locationGroups: { [key: string]: any[] } = {}
       devices.forEach((device) => {
         const location = device.location || "Unknown Location"
@@ -66,31 +94,22 @@ export const useMonitoring = () => {
         locationGroups[location].push(device)
       })
 
-      // Load existing preferences from MMKV (FRESH LOAD EVERY TIME)
-      const preferences = loadMonitoringPreferences()
-      console.log("📋 Fresh MMKV preferences loaded:", preferences)
+      // Load existing preferences from SecureStore
+      const preferences = await loadMonitoringPreferences()
 
-      // Create monitoring areas from available locations
+      // Create areas
       const areas: MonitoringArea[] = Object.entries(locationGroups).map(([location, deviceList]) => ({
         location,
         deviceCount: deviceList.length,
-        enabled: preferences[location] || false, // Use saved preference or default to false
+        enabled: preferences[location] || false,
         devices: deviceList.map((d) => d.deviceId),
       }))
 
-      // Sort by location name for consistent ordering
+      // Sort by name
       areas.sort((a, b) => a.location.localeCompare(b.location))
 
       setMonitoringAreas(areas)
       setInitialized(true)
-      console.log("✅ Initialized monitoring areas with fresh MMKV data:", areas)
-
-      // Log which areas are currently enabled
-      const enabledAreas = areas.filter((area) => area.enabled)
-      console.log(
-        "📍 Currently monitored areas from MMKV:",
-        enabledAreas.map((a) => a.location),
-      )
     } catch (error) {
       console.error("❌ Error initializing monitoring areas:", error)
     } finally {
@@ -98,64 +117,54 @@ export const useMonitoring = () => {
     }
   }, [])
 
-  // Toggle monitoring for a specific area
+  // 🔹 Toggle monitoring
   const toggleAreaMonitoring = useCallback(
-    (location: string) => {
-      console.log(`🔄 Toggling monitoring for: ${location}`)
+    async (location: string) => {
 
       const updatedAreas = monitoringAreas.map((area) =>
         area.location === location ? { ...area, enabled: !area.enabled } : area,
       )
 
       setMonitoringAreas(updatedAreas)
-      saveMonitoringPreferences(updatedAreas)
+      await saveMonitoringPreferences(updatedAreas)
 
       const toggledArea = updatedAreas.find((a) => a.location === location)
-      console.log(`✅ ${location} monitoring: ${toggledArea?.enabled ? "ENABLED" : "DISABLED"}`)
-
-      // Log all currently enabled areas
-      const enabledAreas = updatedAreas.filter((area) => area.enabled)
-      console.log(
-        "📍 All monitored areas after toggle:",
-        enabledAreas.map((a) => a.location),
-      )
+      const isEnabled = toggledArea?.enabled || false
+      
+      // Sync with backend
+      if (toggledArea) {
+        updateBackendSubscriptions(toggledArea.devices, isEnabled)
+      }
     },
-    [monitoringAreas],
+    [monitoringAreas, user],
   )
 
-  // Get monitored locations
+  // 🔹 Get monitored locations
   const getMonitoredLocations = useCallback(() => {
     const monitored = monitoringAreas.filter((area) => area.enabled)
-    console.log(
-      "🔍 Getting monitored locations:",
-      monitored.map((a) => a.location),
-    )
     return monitored
   }, [monitoringAreas])
 
-  // Get monitored device IDs
+  // 🔹 Get monitored device IDs
   const getMonitoredDeviceIds = useCallback(() => {
     const monitoredAreas = getMonitoredLocations()
     const deviceIds: string[] = []
-    monitoredAreas.forEach((area) => {
-      deviceIds.push(...area.devices)
-    })
-    console.log("🔍 Getting monitored device IDs:", deviceIds)
+    monitoredAreas.forEach((area) => deviceIds.push(...area.devices))
     return deviceIds
   }, [getMonitoredLocations])
 
-  // Check if a device is being monitored
+
+  // 🔹 Check if device is monitored
   const isDeviceMonitored = useCallback(
     (deviceId: string) => {
-      if (!initialized) return false // Return false if not initialized yet
+      if (!initialized) return false
       const monitoredDeviceIds = getMonitoredDeviceIds()
-      const isMonitored = monitoredDeviceIds.includes(deviceId)
-      return isMonitored
+      return monitoredDeviceIds.includes(deviceId)
     },
     [initialized, getMonitoredDeviceIds],
   )
 
-  // Get monitoring summary
+  // 🔹 Summary
   const getMonitoringSummary = useCallback(() => {
     const totalAreas = monitoringAreas.length
     const monitoredAreas = getMonitoredLocations().length
@@ -170,32 +179,38 @@ export const useMonitoring = () => {
     }
   }, [monitoringAreas, getMonitoredLocations, getMonitoredDeviceIds])
 
-  // Clear all monitoring preferences (useful for debugging)
-  const clearMonitoringPreferences = useCallback(() => {
+  // 🔹 Clear all preferences
+  const clearMonitoringPreferences = useCallback(async () => {
     try {
-      storage.delete(MONITORING_AREAS_KEY)
-      console.log("🧹 Cleared all monitoring preferences")
-      
-      // Reset areas to disabled
-      const clearedAreas = monitoringAreas.map(area => ({ ...area, enabled: false }))
+      // 1. Unsubscribe from all devices on backend first
+      const allMonitoredDevices = getMonitoredDeviceIds()
+      if (allMonitoredDevices.length > 0) {
+        await updateBackendSubscriptions(allMonitoredDevices, false)
+      }
+
+      // 2. Clear local storage
+      await SecureStore.deleteItemAsync(MONITORING_AREAS_KEY)
+
+      // 3. Update state
+      const clearedAreas = monitoringAreas.map((area) => ({ ...area, enabled: false }))
       setMonitoringAreas(clearedAreas)
     } catch (error) {
       console.error("❌ Error clearing monitoring preferences:", error)
     }
-  }, [monitoringAreas])
+  }, [monitoringAreas, getMonitoredDeviceIds, user])
 
   return {
     monitoringAreas,
     loading,
     initialized,
-    setLoading, // EXPOSE setLoading for force refresh
-    setInitialized, // EXPOSE setInitialized for force refresh
+    setLoading,
+    setInitialized,
     initializeMonitoringAreas,
     toggleAreaMonitoring,
     getMonitoredLocations,
     getMonitoredDeviceIds,
     isDeviceMonitored,
     getMonitoringSummary,
-    clearMonitoringPreferences, // For debugging
+    clearMonitoringPreferences,
   }
 }

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "194205062169",
+    "project_id": "udara-323a8",
+    "storage_bucket": "udara-323a8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:194205062169:android:7acb791dc3216caf5fc688",
+        "android_client_info": {
+          "package_name": "com.fourpeng.udara"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC24xP5hsu6zf6rVjF9CLn742QkhqpZPGQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

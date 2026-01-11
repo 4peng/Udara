@@ -1,6 +1,7 @@
 // app/(tabs)/settings.tsx
 "use client"
 
+
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
 import { useState } from "react"
@@ -21,7 +22,7 @@ import { useDevicesWithMonitoring } from "../../hooks/useDevicesWithMonitoring"
 
 export default function SettingsScreen() {
   const [pushNotifications, setPushNotifications] = useState(true)
-  const [updateFrequency, setUpdateFrequency] = useState("Every 15 minutes")
+  const [alertThreshold, setAlertThreshold] = useState("Standard (AQI > 100)")
 
   const { logout, user } = useAuth()
   const { 
@@ -29,10 +30,7 @@ export default function SettingsScreen() {
     loading, 
     toggleAreaMonitoring, 
     monitoringSummary,
-    getAvailableAreas,
-    clearMonitoringPreferences,
     initialized,
-    forceCompleteReset, // NEW: Get the force refresh function
   } = useDevicesWithMonitoring()
 
   const handleLogout = () => {
@@ -56,42 +54,31 @@ export default function SettingsScreen() {
     ])
   }
 
-  const handleClearPreferences = () => {
+  const handleAlertThresholds = () => {
     Alert.alert(
-      "Clear Monitoring Preferences", 
-      "This will disable monitoring for all areas. Are you sure?", 
+      "Alert Threshold",
+      "Choose when you want to be notified:",
       [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-        {
-          text: "Clear",
-          style: "destructive",
-          onPress: () => {
-            clearMonitoringPreferences()
-            Alert.alert("Success", "All monitoring preferences have been cleared")
-          },
-        },
+        { text: "Sensitive (AQI > 50)", onPress: () => setAlertThreshold("Sensitive (AQI > 50)") },
+        { text: "Standard (AQI > 100)", onPress: () => setAlertThreshold("Standard (AQI > 100)") },
+        { text: "Hazardous (AQI > 200)", onPress: () => setAlertThreshold("Hazardous (AQI > 200)") },
+        { text: "Cancel", style: "cancel" }
       ]
     )
   }
 
+
   // NEW: Enhanced toggle function that triggers refresh when going back to home
   const handleToggleAreaMonitoring = async (location: string) => {
-    console.log(`⚙️ Settings: Toggling monitoring for ${location}`)
     
     // Toggle the area monitoring
     toggleAreaMonitoring(location)
-    
-    // Log the change for debugging
-    console.log(`⚙️ Settings: ${location} monitoring toggled - changes will be applied when returning to Home`)
   }
+
 
   const renderHeader = () => (
     <View style={styles.header}>
       <TouchableOpacity style={styles.backButton} onPress={() => {
-        console.log("⚙️ Settings: Going back to Home - changes will be applied via useFocusEffect")
         router.back()
       }}>
         <Ionicons name="chevron-back" size={24} color="#333" />
@@ -201,27 +188,6 @@ export default function SettingsScreen() {
             </View>
           </View>
         ))}
-
-        {/* Debug section - only show in development */}
-        {__DEV__ && (
-          <View style={styles.debugSection}>
-            <TouchableOpacity style={styles.debugButton} onPress={handleClearPreferences}>
-              <Ionicons name="trash-outline" size={16} color="#F44336" />
-              <Text style={styles.debugButtonText}>Clear All Preferences (Debug)</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.debugButton, { marginTop: 8, backgroundColor: "#E3F2FD", borderColor: "#BBDEFB" }]} 
-              onPress={() => {
-                console.log("🔄 Manual force refresh triggered from Settings")
-                forceCompleteReset()
-                Alert.alert("Debug", "Force refresh triggered - check console logs")
-              }}
-            >
-              <Ionicons name="refresh-outline" size={16} color="#2196F3" />
-              <Text style={[styles.debugButtonText, { color: "#2196F3" }]}>Force Refresh (Debug)</Text>
-            </TouchableOpacity>
-          </View>
-        )}
       </View>
     )
   }
@@ -242,27 +208,18 @@ export default function SettingsScreen() {
         />
       </View>
 
-      <TouchableOpacity style={styles.settingItem}>
-        <View style={styles.settingLeft}>
-          <Ionicons name="time-outline" size={20} color="#666" style={styles.settingIcon} />
-          <Text style={styles.settingLabel}>Update Frequency</Text>
-        </View>
-        <View style={styles.settingRight}>
-          <Text style={styles.settingValue}>{updateFrequency}</Text>
-          <Ionicons name="chevron-forward" size={20} color="#ccc" />
-        </View>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.settingItem}>
+      <TouchableOpacity style={styles.settingItem} onPress={handleAlertThresholds}>
         <View style={styles.settingLeft}>
           <Ionicons name="warning-outline" size={20} color="#666" style={styles.settingIcon} />
           <Text style={styles.settingLabel}>Alert Thresholds</Text>
         </View>
         <View style={styles.settingRight}>
-          <Text style={styles.settingValue}>Custom</Text>
+          <Text style={styles.settingValue}>{alertThreshold}</Text>
           <Ionicons name="chevron-forward" size={20} color="#ccc" />
         </View>
       </TouchableOpacity>
+
+
     </View>
   )
 
@@ -275,6 +232,7 @@ export default function SettingsScreen() {
         <View style={styles.userDetails}>
           <Text style={styles.userName}>{user?.email || "User"}</Text>
           <Text style={styles.userEmail}>Signed in</Text>
+          <Text style={styles.userIdText} selectable>UID: {user?.uid}</Text>
         </View>
       </View>
 
@@ -455,6 +413,12 @@ const styles = StyleSheet.create({
   userEmail: {
     fontSize: 14,
     color: "#666",
+  },
+  userIdText: {
+    fontSize: 10,
+    color: "#999",
+    marginTop: 4,
+    fontFamily: "SpaceMono", // Assuming this font is loaded in _layout.tsx
   },
   logoutButton: {
     flexDirection: "row",

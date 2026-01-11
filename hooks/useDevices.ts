@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { Alert } from "react-native"
 import { API_CONFIG, apiRequest, buildApiUrl } from "../config/api"
 
 export interface Device {
@@ -18,6 +19,25 @@ export interface Device {
   lastUpdated: string
 }
 
+interface ApiDevice {
+  id?: string
+  _id?: string
+  deviceId: string
+  name: string
+  status?: string
+  lat?: number
+  lng?: number
+  coordinates?: {
+    latitude: number
+    longitude: number
+  }
+  aqi?: { value: number } | number
+  temperature?: number
+  humidity?: number
+  lastUpdate?: string
+  lastUpdated?: string
+}
+
 export const useDevices = () => {
   const [devices, setDevices] = useState<Device[]>([])
   const [loading, setLoading] = useState(true)
@@ -29,55 +49,49 @@ export const useDevices = () => {
       setError(null)
 
       const url = buildApiUrl(API_CONFIG.ENDPOINTS.DEVICES)
-      console.log("Fetching devices from:", url)
 
       const response = await apiRequest(url)
-      console.log("Response status:", response.status)
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
+      // apiRequest handles response.ok checks now
 
       const data = await response.json()
-      console.log("Received data:", data)
 
-      if (data.success && Array.isArray(data.devices)) {
+      // Handle new API structure: data is the array itself
+      const deviceList = Array.isArray(data) ? data : (data.devices || [])
+
+      if (Array.isArray(deviceList)) {
         // Validate and sanitize device data
-        const validDevices = data.devices
-          .filter((device: any) => {
-            const isValid =
-              device &&
-              typeof device.id === "string" &&
-              typeof device.name === "string" &&
-              typeof device.location === "string" &&
-              typeof device.aqi === "number" &&
-              device.coordinates &&
-              typeof device.coordinates.latitude === "number" &&
-              typeof device.coordinates.longitude === "number"
-
-            if (!isValid) {
-              console.warn("Invalid device data:", device)
-            }
-            return isValid
-          })
-          .map((device: any) => ({
-            ...device,
+        const validDevices = (deviceList as ApiDevice[])
+          .map((device) => ({
+            id: device.id || device._id || device.deviceId,
+            deviceId: device.deviceId,
+            name: device.name,
+            location: device.name, // Use name as location for now
+            status: device.status || 'active',
+            coordinates: {
+              latitude: device.lat || device.coordinates?.latitude || 0,
+              longitude: device.lng || device.coordinates?.longitude || 0
+            },
+            aqi: typeof device.aqi === 'object' ? (device.aqi?.value || 0) : (device.aqi || 0),
+            temperature: device.temperature ? `${device.temperature}°C` : null,
+            humidity: device.humidity ? `${device.humidity}%` : null,
             isMonitored: false, // Will be updated later by monitoring hook
-            lastUpdated: device.lastUpdated || new Date().toISOString(),
+            lastUpdated: device.lastUpdate || device.lastUpdated || new Date().toISOString(),
           }))
+          .filter((device) => device.deviceId && device.coordinates.latitude !== 0)
 
         setDevices(validDevices)
         setError(null)
-
-        console.log("Successfully set devices:", validDevices.length, "valid devices")
       } else {
         console.error("Invalid API response structure:", data)
-        setError(data.error || "Invalid response format")
+        throw new Error("Invalid response format from server")
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Network error occurred"
       setError(errorMessage)
       console.error("Error fetching devices:", err)
+      
+      // Visual feedback for the error
+      Alert.alert("Connection Error", errorMessage);
 
       // Set empty array on error to prevent crashes
       setDevices([])
@@ -87,12 +101,10 @@ export const useDevices = () => {
   }
 
   const refreshDevices = () => {
-    console.log("Refreshing devices...")
     fetchDevices()
   }
 
   const toggleDeviceMonitoring = (deviceId: string) => {
-    console.log("Toggling monitoring for device:", deviceId)
     setDevices((prevDevices) =>
       prevDevices.map((device) => (device.id === deviceId ? { ...device, isMonitored: !device.isMonitored } : device)),
     )
@@ -116,7 +128,6 @@ export const useDevices = () => {
   }
 
   useEffect(() => {
-    console.log("useDevices hook mounted, fetching devices...")
     fetchDevices()
   }, [])
 

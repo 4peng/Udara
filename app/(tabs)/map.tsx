@@ -14,7 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native"
-import MapboxMap from "../../components/MapboxMap"
+import LeafletMap from "../../components/LeafletMap"
 import { useDevicesWithMonitoring } from "../../hooks/useDevicesWithMonitoring"
 import { getAQIColor, getAQIStatus, SIMPLE_AQI_CATEGORIES } from "../../utils/aqiUtils"
 
@@ -41,14 +41,13 @@ export default function MapScreen() {
   }
 
   const handleSensorPress = (sensor: any) => {
-    console.log(`🎯 Map: Sensor pressed: ${sensor.name} (${sensor.id})`)
     setSelectedSensor(sensor)
   }
 
   const handleSensorDetailPress = () => {
-    if (selectedSensor && selectedSensor.id) {
+    if (selectedSensor && selectedSensor.deviceId) {
       setSelectedSensor(null)
-      router.push(`/sensor/${selectedSensor.id}`)
+      router.push(`/sensor/${selectedSensor.deviceId}`)
     }
   }
 
@@ -65,48 +64,31 @@ export default function MapScreen() {
   )
 
   const renderMapContent = () => {
-    if (loading) {
-      return (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4361EE" />
-          <Text style={styles.loadingText}>Loading sensors...</Text>
-        </View>
-      )
-    }
-
-    if (error) {
-      return (
-        <View style={styles.errorContainer}>
-          <Ionicons name="warning-outline" size={48} color="#F44336" />
-          <Text style={styles.errorText}>Failed to load sensors</Text>
-          <Text style={styles.errorSubtext}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={refreshDevices}>
-            <Text style={styles.retryButtonText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
-      )
-    }
-
-    const filteredSensors = getFilteredSensors()
-
-    if (filteredSensors.length === 0) {
-      return (
-        <View style={styles.errorContainer}>
-          <Ionicons name="location-outline" size={48} color="#ccc" />
-          <Text style={styles.errorText}>No sensors to display</Text>
-          <Text style={styles.errorSubtext}>Try adjusting your filters</Text>
-        </View>
-      )
-    }
+    // Filter sensors based on selected criteria
+    const filteredSensors = getFilteredSensors();
 
     return (
-      <MapboxMap
-        sensors={filteredSensors}
-        onSensorPress={handleSensorPress}
-        style={styles.map}
-        interactive={true}
-        showUserLocation={true}
-      />
+      <View style={styles.mapContainer}>
+        <LeafletMap
+          sensors={filteredSensors}
+          onSensorPress={handleSensorPress}
+          style={styles.map}
+        />
+        
+        {loading && (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="small" color="#4361EE" />
+            <Text style={styles.loadingOverlayText}>Updating sensors...</Text>
+          </View>
+        )}
+
+        {error && (
+          <View style={styles.errorOverlay}>
+            <Ionicons name="warning" size={20} color="#fff" />
+            <Text style={styles.errorOverlayText}>Offline</Text>
+          </View>
+        )}
+      </View>
     )
   }
 
@@ -282,6 +264,46 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: "#FFFFFF",
     fontSize: 14,
+    fontWeight: "600",
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 16,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  loadingOverlayText: {
+    marginLeft: 8,
+    fontSize: 12,
+    color: "#4361EE",
+    fontWeight: "600",
+  },
+  errorOverlay: {
+    position: 'absolute',
+    top: 16,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F44336',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    elevation: 3,
+  },
+  errorOverlayText: {
+    marginLeft: 8,
+    fontSize: 12,
+    color: "#fff",
     fontWeight: "600",
   },
   legend: {

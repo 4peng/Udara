@@ -3,7 +3,7 @@
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
 import { useState } from "react"
-import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"
+import { SafeAreaView, FlatList, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"
 import { useDevicesWithMonitoring } from "../../hooks/useDevicesWithMonitoring"
 import { getAQIColor, getAQIStatus } from "../../utils/aqiUtils"
 
@@ -15,15 +15,10 @@ export default function SensorsScreen() {
   
   const { 
     devices, 
-    loading, 
-    error, 
     monitoredDevices,
-    getMonitoredDeviceIds,
-    isDeviceMonitored,
     toggleAreaMonitoring,
     monitoringAreas,
     initialized,
-    forceCompleteReset
   } = useDevicesWithMonitoring()
 
   // Helper function to check if a device is monitored
@@ -34,13 +29,13 @@ export default function SensorsScreen() {
   }
 
   // Helper function to toggle monitoring for a device's location
-  const toggleDeviceLocationMonitoring = (location: string) => {
-    console.log(`🔄 SensorsScreen: Toggling monitoring for location: ${location}`)
-    toggleAreaMonitoring(location)
+  const toggleDeviceLocationMonitoring = async (location: string) => {
+    // This will toggle ALL devices in this location
+    await toggleAreaMonitoring(location)
   }
 
   const getFilteredSensors = () => {
-    let filtered = devices
+    let filtered = devices || []
 
     // Filter by search query
     if (searchQuery) {
@@ -67,9 +62,6 @@ export default function SensorsScreen() {
   const renderHeader = () => (
     <View style={styles.header}>
       <Text style={styles.headerTitle}>All Sensors</Text>
-      <TouchableOpacity style={styles.headerButton}>
-        <Ionicons name="options-outline" size={24} color="#333" />
-      </TouchableOpacity>
     </View>
   )
 
@@ -101,10 +93,14 @@ export default function SensorsScreen() {
 
     return (
       <View style={styles.categoryContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScrollView}>
-          {categories.map((category) => (
+        <FlatList
+          horizontal
+          data={categories}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryScrollView}
+          keyExtractor={(item) => item}
+          renderItem={({ item: category }) => (
             <TouchableOpacity
-              key={category}
               style={[styles.categoryTab, selectedCategory === category && styles.categoryTabActive]}
               onPress={() => setSelectedCategory(category)}
             >
@@ -113,17 +109,17 @@ export default function SensorsScreen() {
                 {category === "Monitored" && monitoredCount > 0 && ` (${monitoredCount})`}
               </Text>
             </TouchableOpacity>
-          ))}
-        </ScrollView>
+          )}
+        />
       </View>
     )
   }
 
-  const renderSensorCard = (sensor: any) => {
+  const renderSensorCard = ({ item: sensor }: { item: any }) => {
     const isMonitored = isDeviceCurrentlyMonitored(sensor.deviceId, sensor.location)
     
     return (
-      <TouchableOpacity key={sensor.id} style={styles.sensorCard} onPress={() => router.push(`/sensor/${sensor.id}`)}>
+      <TouchableOpacity style={styles.sensorCard} onPress={() => router.push(`/sensor/${sensor.deviceId}`)}>
         <View style={styles.sensorCardContent}>
           <View style={styles.sensorInfo}>
             <View style={[styles.sensorDot, { backgroundColor: getAQIColor(sensor.aqi) }]} />
@@ -161,7 +157,7 @@ export default function SensorsScreen() {
     )
   }
 
-  const renderSensorsList = () => {
+  const renderEmptyState = () => {
     if (!initialized) {
       return (
         <View style={styles.loadingState}>
@@ -169,46 +165,50 @@ export default function SensorsScreen() {
         </View>
       )
     }
-    
 
-    const filteredSensors = getFilteredSensors()
-
-    if (filteredSensors.length === 0) {
-      return (
-        <View style={styles.emptyState}>
-          <Ionicons name="search-outline" size={48} color="#ccc" />
-          <Text style={styles.emptyStateText}>
-            {selectedCategory === "Monitored" ? "No monitored sensors" : "No sensors found"}
-          </Text>
-          <Text style={styles.emptyStateSubtext}>
-            {selectedCategory === "Monitored" 
-              ? "Go to Settings to select areas to monitor" 
-              : "Try adjusting your search or filter"}
-          </Text>
-          {selectedCategory === "Monitored" && (
-            <TouchableOpacity 
-              style={styles.settingsButton} 
-              onPress={() => router.push("/(tabs)/settings")}
-            >
-              <Text style={styles.settingsButtonText}>Open Settings</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )
-    }
-
-    return <View style={styles.sensorsList}>{filteredSensors.map((sensor) => renderSensorCard(sensor))}</View>
+    return (
+      <View style={styles.emptyState}>
+        <Ionicons name="search-outline" size={48} color="#ccc" />
+        <Text style={styles.emptyStateText}>
+          {selectedCategory === "Monitored" ? "No monitored sensors" : "No sensors found"}
+        </Text>
+        <Text style={styles.emptyStateSubtext}>
+          {selectedCategory === "Monitored" 
+            ? "Go to Settings to select areas to monitor" 
+            : "Try adjusting your search or filter"}
+        </Text>
+        {selectedCategory === "Monitored" && (
+          <TouchableOpacity 
+            style={styles.settingsButton} 
+            onPress={() => router.push("/(tabs)/settings")}
+          >
+            <Text style={styles.settingsButtonText}>Open Settings</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    )
   }
+
+  const filteredSensors = getFilteredSensors()
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      {renderHeader()}
-      {renderSearchBar()}
-      {renderCategoryTabs()}
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {renderSensorsList()}
-      </ScrollView>
+      <FlatList
+        data={filteredSensors}
+        renderItem={renderSensorCard}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.listContent}
+        ListHeaderComponent={
+          <>
+            {renderHeader()}
+            {renderSearchBar()}
+            {renderCategoryTabs()}
+          </>
+        }
+        ListEmptyComponent={renderEmptyState}
+        stickyHeaderIndices={[0]} // Optional: makes header sticky? No, header component is complex.
+      />
     </SafeAreaView>
   )
 }
