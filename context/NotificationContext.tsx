@@ -33,34 +33,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<UINotification[]>([]);
 
-  // 🔹 Register token with backend when both token and user are available
-  useEffect(() => {
-    const registerToken = async () => {
-      if (user && expoPushToken) {
-        console.log(`📡 Registering Push Token for user ${user.uid}: ${expoPushToken}`);
-        try {
-          const response = await apiRequest(buildApiUrl(API_CONFIG.ENDPOINTS.NOTIFICATIONS.REGISTER), {
-            method: 'POST',
-            body: JSON.stringify({
-              userId: user.uid,
-              pushToken: expoPushToken
-            })
-          });
-          
-          if (response.ok) {
-            console.log("✅ Push Token registered successfully with backend");
-          } else {
-            console.error("❌ Failed to register Push Token with backend", response.status);
-          }
-        } catch (error) {
-          console.error("❌ Error registering Push Token with backend", error);
-        }
-      }
-    };
-
-    registerToken();
-  }, [user, expoPushToken]);
-
   // Load notifications from storage on mount
   useEffect(() => {
     loadNotifications();

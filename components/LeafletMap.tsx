@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useEffect } from 'react';
 import { StyleSheet, View, ActivityIndicator, Text } from 'react-native';
 import { WebView } from 'react-native-webview';
 
@@ -19,12 +19,23 @@ interface LeafletMapProps {
 }
 
 export default function LeafletMap({ sensors, onSensorPress, style }: LeafletMapProps) {
+  const webviewRef = useRef<WebView>(null);
   
-  // Generate the HTML for the Leaflet map
+  // Update markers when sensors data changes
+  useEffect(() => {
+    if (webviewRef.current && sensors.length > 0) {
+      const script = `
+        if (window.updateMapMarkers) {
+          window.updateMapMarkers(${JSON.stringify(sensors)});
+        }
+      `;
+      webviewRef.current.injectJavaScript(script);
+    }
+  }, [sensors]);
+
+  // Generate the HTML for the Leaflet map (only once)
   const mapHtml = useMemo(() => {
-    const sensorsJson = JSON.stringify(sensors);
-    
-    // Default center (UM Campus) if no sensors
+    // Default center (UM Campus)
     const defaultLat = 3.128296;
     const defaultLng = 101.650734;
 
@@ -50,8 +61,7 @@ export default function LeafletMap({ sensors, onSensorPress, style }: LeafletMap
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           }).addTo(map);
 
-          // Sensor Data
-          var sensors = ${sensorsJson};
+          var currentMarkers = [];
 
           // Helper for AQI Color
           function getAQIColor(aqi) {
@@ -63,43 +73,58 @@ export default function LeafletMap({ sensors, onSensorPress, style }: LeafletMap
             return "#795548"; // Hazardous (Brown)
           }
 
-          // Add Markers
-          var markers = [];
-          if (Array.isArray(sensors)) {
-            sensors.forEach(function(sensor) {
-              if (sensor.coordinates && sensor.coordinates.latitude && sensor.coordinates.longitude) {
-                var color = getAQIColor(sensor.aqi);
-                
-                var marker = L.circleMarker([sensor.coordinates.latitude, sensor.coordinates.longitude], {
-                  radius: 12,
-                  fillColor: color,
-                  color: "#fff",
-                  weight: 2,
-                  opacity: 1,
-                  fillOpacity: 0.8
-                }).addTo(map);
-
-                // Add click handler
-                marker.on('click', function() {
-                  window.ReactNativeWebView.postMessage(JSON.stringify(sensor));
-                });
-                
-                markers.push(marker);
-              }
+          // Global update function
+          window.updateMapMarkers = function(sensorsData) {
+            // Clear existing markers
+            currentMarkers.forEach(function(marker) {
+              map.removeLayer(marker);
             });
-          }
+            currentMarkers = [];
 
-          // Center map to fit all markers if we have them
-          if (markers.length > 0) {
-            var group = new L.featureGroup(markers);
-            map.fitBounds(group.getBounds().pad(0.1));
-          }
+            // Add new markers
+            if (Array.isArray(sensorsData)) {
+              var bounds = [];
+              
+              sensorsData.forEach(function(sensor) {
+                if (sensor.coordinates && sensor.coordinates.latitude && sensor.coordinates.longitude) {
+                  var color = getAQIColor(sensor.aqi);
+                  
+                  var marker = L.circleMarker([sensor.coordinates.latitude, sensor.coordinates.longitude], {
+                    radius: 12,
+                    fillColor: color,
+                    color: "#fff",
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                  }).addTo(map);
+
+                  // Add click handler
+                  marker.on('click', function() {
+                    window.ReactNativeWebView.postMessage(JSON.stringify(sensor));
+                  });
+                  
+                  currentMarkers.push(marker);
+                  bounds.push([sensor.coordinates.latitude, sensor.coordinates.longitude]);
+                }
+              });
+
+              // Fit bounds if we have markers
+              if (bounds.length > 0) {
+                // var group = new L.featureGroup(currentMarkers);
+                // map.fitBounds(group.getBounds().pad(0.1));
+                // Optional: Auto-fit bounds
+              }
+            }
+          };
+
+          // Initial load
+          window.updateMapMarkers(${JSON.stringify(sensors)});
 
         </script>
       </body>
       </html>
     `;
-  }, [sensors]);
+  }, []); // Empty dependency array ensures HTML is only generated once
 
   const handleMessage = (event: any) => {
     try {
@@ -115,6 +140,7 @@ export default function LeafletMap({ sensors, onSensorPress, style }: LeafletMap
   return (
     <View style={[styles.container, style]}>
       <WebView
+        ref={webviewRef}
         originWhitelist={['*']}
         source={{ html: mapHtml, baseUrl: 'https://github.com' }}
         style={styles.webview}
@@ -122,10 +148,6 @@ export default function LeafletMap({ sensors, onSensorPress, style }: LeafletMap
         javaScriptEnabled={true}
         domStorageEnabled={true}
         startInLoadingState={true}
-        onLoad={() => console.log("LeafletMap: WebView Loaded")}
-        onError={(e) => console.error("LeafletMap: WebView Error", e.nativeEvent)}
-        onHttpError={(e) => console.error("LeafletMap: HTTP Error", e.nativeEvent)}
-        renderError={(e) => <View style={{flex:1, backgroundColor: 'yellow'}}><Text>WebView Error: {e}</Text></View>}
         renderLoading={() => (
           <View style={styles.loading}>
             <ActivityIndicator size="large" color="#4361EE" />
