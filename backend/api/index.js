@@ -59,6 +59,7 @@ const sensorDataRoute = require('../routes/sensorData');
 const notificationRoute = require('../routes/notificationRoute');
 const csvUploadRoute = require('../routes/csvUpload');
 const testNotificationRoute = require('../routes/testNotification');
+const { startRealtimeMonitoring } = require('../jobs/realtimeMonitor');
 
 app.use("/api/logs", logsRouter);
 app.use("/api/devices", devicesRouter);
@@ -128,13 +129,17 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Internal server error" });
 });
 
-// Export for Vercel serverless
+// Start Realtime Monitoring once DB is connected
+mongoose.connection.once('open', () => {
+  startRealtimeMonitoring();
+});
+
+// Export for Vercel (optional, but harmless)
 module.exports = app;
 
-// Add this part for local development:
-if (process.env.NODE_VALUE !== 'production') {
-  const PORT = process.env.PORT || 4000;
-  app.listen(PORT, () => {
-    console.log(`Server is running locally on http://localhost:${PORT}`);
-  });
-}
+// Start Server (Compatible with Render & Local)
+// Remove the NODE_VALUE restriction so it runs in Production too
+const PORT = process.env.PORT || 4000;
+app.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
+});
