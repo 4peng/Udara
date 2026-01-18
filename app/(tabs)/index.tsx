@@ -289,36 +289,6 @@ export default function HomeScreen() {
     )
   }
 
-  // UPDATED: Enhanced environmental data display with real data
-  const renderEnvironmentalData = () => {
-    const avgEnvironmental = getAverageEnvironmental()
-
-    return (
-      <View style={styles.environmentalData}>
-        <View style={styles.dataItem}>
-          <Ionicons name="thermometer-outline" size={16} color="#666" />
-          <Text style={styles.dataLabel}>Temperature</Text>
-          <Text style={styles.dataValue}>{avgEnvironmental.temp}</Text>
-        </View>
-        <View style={styles.dataItem}>
-          <Ionicons name="water-outline" size={16} color="#666" />
-          <Text style={styles.dataLabel}>Humidity</Text>
-          <Text style={styles.dataValue}>{avgEnvironmental.humidity}</Text>
-        </View>
-        <View style={styles.dataItem}>
-          <Ionicons name="time-outline" size={16} color="#666" />
-          <Text style={styles.dataLabel}>Updated</Text>
-          <Text style={styles.dataValue}>
-            {lastRefreshTime.toLocaleTimeString("en-US", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </Text>
-        </View>
-      </View>
-    )
-  }
-
   // NEW: Environmental summary card for home screen
   const renderEnvironmentalSummary = () => {
     const devices = safeMonitoredDevices.length > 0 ? safeMonitoredDevices : safeDevices
@@ -548,9 +518,6 @@ export default function HomeScreen() {
         {/* AQI Display */}
         {renderAQICircle()}
 
-        {/* Environmental Data */}
-        {renderEnvironmentalData()}
-
         {/* NEW: Environmental Summary */}
         {renderEnvironmentalSummary()}
 
@@ -670,30 +637,6 @@ const styles = StyleSheet.create({
     color: "#666",
     marginTop: 12,
     textAlign: "center",
-  },
-  environmentalData: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    backgroundColor: "#F8F9FA",
-    marginHorizontal: 20,
-    borderRadius: 12,
-    marginBottom: 20,
-  },
-  dataItem: {
-    alignItems: "center",
-  },
-  dataLabel: {
-    fontSize: 12,
-    color: "#666",
-    marginTop: 4,
-  },
-  dataValue: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#333",
-    marginTop: 2,
   },
   // NEW: Environmental summary styles
   environmentalSummary: {

@@ -66,6 +66,7 @@ export function usePushNotifications() {
   const notificationListener = useRef<Notifications.EventSubscription>(null);
   const responseListener = useRef<Notifications.EventSubscription>(null);
   const { user } = useAuth();
+  const isRegistered = useRef(false);
 
   useEffect(() => {
     registerForPushNotificationsAsync().then(token => setExpoPushToken(token));
@@ -83,10 +84,23 @@ export function usePushNotifications() {
     };
   }, []);
 
+  // Reset registration flag when user changes (e.g. logout/login)
+  useEffect(() => {
+    isRegistered.current = false;
+  }, [user?.uid]);
+
   // Register token with backend when user is logged in and token is available
   useEffect(() => {
-    if (user?.uid && expoPushToken) {
-      console.log(`Registering push token for user: ${user.uid}`);
+    const isValidToken = typeof expoPushToken === 'string' && expoPushToken.length > 0;
+    const isValidUser = user && user.uid;
+
+    if (isValidUser && isValidToken && !isRegistered.current) {
+      console.log(`🚀 Attempting to register Push Token...`);
+      console.log(`   User ID: ${user.uid}`);
+      console.log(`   Token: ${expoPushToken}`);
+      
+      isRegistered.current = true; // Mark as attempting to register
+      
       fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.NOTIFICATIONS.REGISTER}`, {
         method: 'POST',
         headers: {
@@ -99,13 +113,21 @@ export function usePushNotifications() {
       })
       .then(async (response) => {
         if (!response.ok) {
+           isRegistered.current = false; // Retry on failure
            const errorText = await response.text();
            console.error(`❌ Failed to register Push Token with backend ${response.status}: ${errorText}`);
         } else {
            console.log("✅ Push Token registered successfully");
         }
       })
-      .catch(err => console.error("Failed to register push token:", err));
+      .catch(err => {
+        isRegistered.current = false; // Retry on failure
+        console.error("Failed to register push token:", err);
+      });
+    } else if (!isValidUser && isValidToken) {
+       // Token ready but waiting for user login - normal state, do nothing
+    } else if (isValidUser && !isValidToken) {
+       // User logged in but token not ready - normal state, do nothing
     }
   }, [user, expoPushToken]);
 

@@ -54,7 +54,6 @@ app.use(async (req, res, next) => {
 const logsRouter = require("../routes/logs");
 const devicesRouter = require("../routes/devices");
 const userProfileRouter = require("../routes/userRoute");
-const airQualityRouter = require("../routes/airQualityData");
 const sensorDataRoute = require('../routes/sensorData');
 const notificationRoute = require('../routes/notificationRoute');
 const csvUploadRoute = require('../routes/csvUpload');
@@ -64,7 +63,6 @@ const { startRealtimeMonitoring } = require('../jobs/realtimeMonitor');
 app.use("/api/logs", logsRouter);
 app.use("/api/devices", devicesRouter);
 app.use("/api/user", userProfileRouter);
-app.use("/api/air-quality", airQualityRouter);
 app.use("/api/sensor", sensorDataRoute);
 app.use("/api/notifications", notificationRoute);
 app.use("/api/csv-upload", csvUploadRoute);
