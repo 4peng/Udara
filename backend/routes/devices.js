@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const Device = require("../model/Device");
-const { AirQualityReading } = require("../model/AirQualityReading");
+const SensorReading = require("../model/SensorReading");
 
 // Validation middleware
 const validateDeviceData = (req, res, next) => {
@@ -121,7 +121,11 @@ router.get("/:identifier", async (req, res) => {
     const { identifier } = req.params;
 
     // Try to find by MongoDB _id first, then by deviceId
-    let device = await Device.findById(identifier);
+    let device;
+    if (identifier.match(/^[0-9a-fA-F]{24}$/)) {
+      device = await Device.findById(identifier);
+    }
+    
     if (!device) {
       device = await Device.findOne({ deviceId: identifier.toUpperCase() });
     }
@@ -130,18 +134,13 @@ router.get("/:identifier", async (req, res) => {
       return res.status(404).json({ error: "Device not found" });
     }
 
-    // Fetch latest reading
-    const latestReading = await AirQualityReading.getLatestByDevice(device.deviceId);
+    // Fetch latest reading using SensorReading
+    const latestReading = await SensorReading.getLatestByDevice(device.deviceId);
 
     // Return device with reading
     const response = device.toObject();
     if (latestReading) {
-      response.latestReading = {
-        timestamp: latestReading.timestamp,
-        aqi: latestReading.aqiData.overall,
-        readings: latestReading.readings,
-        environmental: latestReading.environmental
-      };
+      response.latestReading = latestReading.toFrontendFormat();
     }
 
     res.json(response);
@@ -157,22 +156,18 @@ router.get("/:deviceId/history", async (req, res) => {
     const { deviceId } = req.params;
     const { hours = 24 } = req.query;
 
-    const history = await AirQualityReading.getHourlyAverages(deviceId, parseInt(hours));
+    const history = await SensorReading.getHourlyAverages(deviceId, parseInt(hours));
 
-    // Format for frontend charts
-    const formattedHistory = history.map(item => ({
-      timestamp: item.timestamp,
-      time: item._id.hour,
-      pm25: Math.round(item.avgPm25 * 10) / 10,
-      pm10: Math.round((item.avgPm10 || 0) * 10) / 10,
-      o3: Math.round(item.avgO3 * 10) / 10,
-      no2: Math.round(item.avgNo2 * 10) / 10,
-      so2: Math.round(item.avgSo2 * 10) / 10,
-      co: Math.round(item.avgCo * 100) / 100,
-      aqi: Math.round(item.avgAqi)
-    }));
-
-    res.json(formattedHistory);
+    // The aggregation in SensorReading.getHourlyAverages already returns the format we need
+    // Just need to ensure AQI is calculated if missing, but for now we return raw averages
+    // Ideally, calculateMalaysianAPI should be applied here too if needed.
+    
+    res.json({
+      success: true,
+      deviceId: deviceId,
+      hours: parseInt(hours),
+      data: history
+    });
   } catch (error) {
     console.error("Error fetching device history:", error);
     res.status(500).json({ error: error.message });
@@ -236,8 +231,7 @@ router.put("/:id", validateDeviceData, async (req, res) => {
     allowedUpdates.forEach((field) => {
       if (req.body[field] !== undefined) {
         if (field === 'location' && typeof req.body.location === 'object') {
-          // Merge location fields to preserve city, state, country, etc.
-          // We can't just do device.location = ... because it's a Mongoose subdoc
+          // Merge location fields
           if (req.body.location.address) device.location.address = req.body.location.address;
           if (req.body.location.coordinates) {
             device.location.coordinates = {
@@ -251,13 +245,8 @@ router.put("/:id", validateDeviceData, async (req, res) => {
       }
     });
 
-    // Special handling for nested location updates if partial data is sent (optional, but good for robustness)
-    // The current frontend sends the full location object, so direct assignment above works.
-
-    // deviceId should usually not be changed, but if needed, add it to allowedUpdates or handle separately
-
     device.updatedAt = new Date();
-    await device.save(); // Triggers pre-save hook for geoLocation
+    await device.save();
 
     res.json({
       message: "Device updated successfully",
