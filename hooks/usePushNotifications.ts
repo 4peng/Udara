@@ -85,7 +85,8 @@ export function usePushNotifications() {
 
   // Register token with backend when user is logged in and token is available
   useEffect(() => {
-    if (user && expoPushToken) {
+    if (user?.uid && expoPushToken) {
+      console.log(`Registering push token for user: ${user.uid}`);
       fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.NOTIFICATIONS.REGISTER}`, {
         method: 'POST',
         headers: {
@@ -95,7 +96,16 @@ export function usePushNotifications() {
           userId: user.uid,
           token: expoPushToken,
         }),
-      }).catch(err => console.error("Failed to register push token:", err));
+      })
+      .then(async (response) => {
+        if (!response.ok) {
+           const errorText = await response.text();
+           console.error(`❌ Failed to register Push Token with backend ${response.status}: ${errorText}`);
+        } else {
+           console.log("✅ Push Token registered successfully");
+        }
+      })
+      .catch(err => console.error("Failed to register push token:", err));
     }
   }, [user, expoPushToken]);
 

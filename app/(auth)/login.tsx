@@ -4,8 +4,7 @@ import { Ionicons } from "@expo/vector-icons"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { Link, router } from "expo-router"
 import { useEffect, useState } from "react"
-import * as WebBrowser from "expo-web-browser"
-import * as Google from "expo-auth-session/providers/google"
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import {
   Alert,
   Image,
@@ -21,8 +20,6 @@ import {
 } from "react-native"
 import { useAuth } from "../../hooks/useAuth"
 
-WebBrowser.maybeCompleteAuthSession();
-
 const REMEMBER_ME_KEY = "@remember_me"
 const SAVED_EMAIL_KEY = "@saved_email"
 
@@ -36,27 +33,35 @@ export default function LoginScreen() {
 
   const { signIn, signInWithGoogle } = useAuth()
 
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-  });
-
   useEffect(() => {
-    if (request) {
-      console.log("Google Auth Redirect URI:", request.redirectUri);
-    }
-  }, [request]);
+    GoogleSignin.configure({
+      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    });
+  }, []);
 
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const { id_token } = response.params;
-      handleGoogleSignIn(id_token);
+  const nativeGoogleSignIn = async () => {
+    setLoading(true);
+    try {
+      await GoogleSignin.hasPlayServices();
+      const response = await GoogleSignin.signIn();
+      const idToken = response.data?.idToken;
+      if (idToken) {
+        handleGoogleSignIn(idToken);
+      } else {
+        Alert.alert("Error", "No ID token found");
+        setLoading(false);
+      }
+    } catch (error: any) {
+      console.error("Google Sign In Error:", error);
+      if (error.code) {
+        // Handle specific error codes if needed
+        console.log("Error code:", error.code);
+      }
+      setLoading(false);
     }
-  }, [response]);
+  };
 
   const handleGoogleSignIn = async (idToken: string) => {
-    setLoading(true);
     try {
       const result = await signInWithGoogle(idToken);
       if (result.success) {
@@ -225,8 +230,7 @@ export default function LoginScreen() {
           <View style={styles.socialButtonsContainer}>
             <TouchableOpacity 
               style={styles.socialButton} 
-              onPress={() => promptAsync()}
-              disabled={!request}
+              onPress={nativeGoogleSignIn}
             >
               <Ionicons name="logo-google" size={24} color="#000" />
             </TouchableOpacity>

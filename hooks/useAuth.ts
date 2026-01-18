@@ -12,6 +12,7 @@ import {
 } from "firebase/auth"
 import { useEffect, useState } from "react"
 import { auth } from "../config/firebase"
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null)
@@ -57,6 +58,11 @@ export const useAuth = () => {
   const logout = async () => {
     try {
       await signOut(auth)
+      try {
+        await GoogleSignin.signOut();
+      } catch (e) {
+        // Ignore if not signed in to Google
+      }
       return { success: true }
     } catch (error: any) {
       return { success: false, error: error.message }
