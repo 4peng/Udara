@@ -11,6 +11,36 @@ The system allows users to:
 *   **Map Interface:** View device locations and their status on a map.
 *   **Receive Alerts:** (Planned) Push notifications for hazardous air quality.
 
+## 🏗️ System Architecture
+
+The following diagram illustrates the high-level data flow from the IoT sensors to the user's mobile device:
+
+```mermaid
+graph TD
+    subgraph "Data Source"
+        IoT[IoT Sensors / CSV Data] -->|Upload| BE
+    end
+
+    subgraph "Cloud Backend (Node.js/Express)"
+        BE[Express API] <-->|Read/Write| DB[(MongoDB Atlas)]
+        BE -->|Logic| AQI[AQI Calculation Engine]
+    end
+
+    subgraph "Mobile App (React Native/Expo)"
+        APP[Udara App] <-->|REST API / JSON| BE
+        APP <-->|Auth| FB[Firebase Auth]
+        APP -->|Notifications| EN[Expo Push Service]
+    end
+
+    subgraph "User Interaction"
+        APP -->|UI/UX| Map[Interactive Maps]
+        APP -->|UI/UX| Charts[Trend Charts]
+        APP -->|Alerts| Push[Push Notifications]
+    end
+```
+
+---
+
 ## 🛠 Tech Stack
 
 ### **Frontend (Mobile)**

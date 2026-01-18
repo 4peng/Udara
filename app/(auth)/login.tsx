@@ -43,6 +43,12 @@ export default function LoginScreen() {
   });
 
   useEffect(() => {
+    if (request) {
+      console.log("Google Auth Redirect URI:", request.redirectUri);
+    }
+  }, [request]);
+
+  useEffect(() => {
     if (response?.type === 'success') {
       const { id_token } = response.params;
       handleGoogleSignIn(id_token);

@@ -11,7 +11,6 @@ import { NotificationProvider } from '../context/NotificationContext';
 import { MonitoringProvider } from '../context/MonitoringContext';
 import { registerBackgroundMonitoring } from '../tasks/backgroundMonitoring';
 import { API_CONFIG, buildApiUrl } from '../config/api';
-import { ErrorBoundary } from '../components/ErrorBoundary';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -62,19 +61,17 @@ export default function RootLayout() {
   }
 
   return (
-    <ErrorBoundary>
-      <NotificationProvider>
-        <MonitoringProvider>
-          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-            <Stack>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-              <Stack.Screen name="+not-found" />
-            </Stack>
-            <StatusBar style="auto" />
-          </ThemeProvider>
-        </MonitoringProvider>
-      </NotificationProvider>
-    </ErrorBoundary>
+    <NotificationProvider>
+      <MonitoringProvider>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+            <Stack.Screen name="+not-found" />
+          </Stack>
+          <StatusBar style="auto" />
+        </ThemeProvider>
+      </MonitoringProvider>
+    </NotificationProvider>
   );
 }
