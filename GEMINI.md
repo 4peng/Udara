@@ -5,11 +5,12 @@
 **Udara** ("Air" in Malay/Indonesian) is a comprehensive Air Quality Monitoring system consisting of a React Native mobile application and a Node.js/Express backend. The system tracks real-time air quality data from IoT devices, calculates AQI (Air Quality Index), and visualizes pollutant levels and environmental metrics.
 
 ### Key Features
-*   **Real-time Monitoring:** Displays AQI, Temperature, and Humidity from connected devices.
-*   **Pollutant Tracking:** detailed breakdown of PM2.5, PM10, NO2, SO2, and CO2 levels.
-*   **Interactive Maps:** Uses Leaflet (via WebView) to visualize device locations and status.
-*   **Historical Data:** Visualizes 24h, weekly, and monthly trends using `react-native-chart-kit`.
-*   **AI Integration:** Includes Google Gemini (`@google/generative-ai`) integration, likely for data analysis or user assistance.
+*   **Real-time Monitoring:** Displays AQI, Temperature, and Humidity from connected devices via a unified dashboard.
+*   **Pollutant Tracking:** Detailed breakdown of PM2.5, PM10, NO2, SO2, and CO2 levels with gas conversion utilities.
+*   **Interactive Maps:** Uses Leaflet (via WebView) to visualize device locations and real-time status.
+*   **Historical Data:** Visualizes trends (24h, weekly, monthly) using `react-native-chart-kit`.
+*   **Push Notifications:** Integrated with Expo Notifications for real-time alerts on air quality changes.
+*   **AI Integration:** Includes Google Gemini (`@google/generative-ai`) integration for data analysis and assistance.
 
 ## Architecture & Tech Stack
 
@@ -17,44 +18,54 @@
 *   **Framework:** React Native (Expo SDK 53).
 *   **Routing:** Expo Router (v5) with file-based routing in `app/`.
 *   **Language:** TypeScript.
-*   **UI/UX:** Custom components in `components/`, styled with standard React Native stylesheets.
-*   **State/Data:** Uses `fetch` for API calls (configured in `config/api.ts`).
+*   **State/Data:** Context API (`MonitoringContext`, `NotificationContext`) and custom hooks for data fetching.
+*   **Authentication:** Integrated with Firebase (configured in `config/firebase.ts`).
+*   **Background Tasks:** Uses `expo-task-manager` and `expo-background-fetch` for background monitoring.
 
 ### Backend (API Service)
-*   **Framework:** Express.js on Node.js.
-*   **Database:** MongoDB (Atlas) - Database name: `UMUdara`.
-*   **Collections:** `devices_mobile` (device registry), `pollutantdatas` (time-series data).
-*   **Port:** 3001 (default).
+*   **Framework:** Express.js on Node.js (v5.1.0).
+*   **Deployment:** Vercel (Serverless Functions).
+*   **Database:** MongoDB (Atlas) using Mongoose ODM.
+*   **User Management:** Clerk SDK for backend user profiles.
+*   **Push Notifications:** `expo-server-sdk` for sending notifications to mobile devices.
+*   **Port:** 4000 (local default).
 
 ## Directory Structure
 
 *   `app/`: Application source code (screens and routing).
-    *   `(tabs)/`: Main tab-based navigation (Home, Map, Sensors, Learn, Alerts).
-    *   `(auth)/`: Authentication screens (Login, Signup).
-*   `backend/` & `server/`: Backend API source code (appear to contain similar logic).
-    *   `server.js` / `index.js`: Main entry point, handles MongoDB connection and API routes.
-*   `components/`: Reusable UI components (Charts, Maps, Text).
-*   `config/`: App-wide configuration.
-    *   `api.ts`: API base URL and networking helpers.
-    *   `mapbox.ts`: Mapbox configuration.
-*   `assets/`: Images and fonts.
+    *   `(tabs)/`: Main tab-based navigation (Home, Map, Sensors, Learn, Alerts, Settings).
+    *   `(auth)/`: Authentication screens (Login, Signup, Forgot Password).
+    *   `learn/`: Educational content about air quality.
+    *   `sensor/`: Detailed views for individual sensor devices.
+*   `backend/`: Backend API source code.
+    *   `api/index.js`: Main entry point (Vercel serverless function).
+    *   `model/`: Mongoose schemas (Device, SensorReading, User, Notification, etc.).
+    *   `routes/`: API route definitions.
+    *   `utils/`: Server-side utilities (gas conversion, external APIs).
+*   `components/`: Reusable UI components.
+*   `context/`: React Context providers for global state.
+*   `hooks/`: Custom React hooks for business logic and data fetching.
+*   `config/`: App-wide configuration (API, Firebase).
+*   `tasks/`: Background task definitions for Expo.
+*   `utils/`: Shared frontend utilities (AQI calculations, formatting).
 
 ## Development Workflow
 
 ### Prerequisites
 *   Node.js & npm
-*   MongoDB connection string (embedded in `server.js` currently).
+*   MongoDB Atlas account
+*   Firebase project (for frontend auth)
+*   Clerk account (for backend user management)
 
 ### 1. Start the Backend
-The backend must be running for the app to fetch data.
+The backend uses environment variables for configuration. Ensure `backend/.env` exists with `MONGODB_URI`.
 
 ```bash
 cd backend
-# or cd server
 npm install
-node server.js
+npm run dev
 ```
-*Server runs on Vercel at `https://udara-backend.vercel.app`.*
+*Local server runs on `http://localhost:4000`.*
 
 ### 2. Start the Frontend (Expo)
 In the root directory:
@@ -63,24 +74,26 @@ In the root directory:
 npm install
 npx expo start
 ```
-*   Press `a` for Android (requires Android Studio/Emulator).
-*   Press `i` for iOS (requires Xcode/Simulator - macOS only).
-*   Press `w` for Web.
+*   **Android:** Press `a` (requires Emulator).
+*   **iOS:** Press `i` (requires Simulator).
+*   **Web:** Press `w`.
 
 ### Configuration Notes
-*   **API Connection:** The app is configured in `config/api.ts` to connect to `https://udara-backend.vercel.app` by default.
+*   **API Connection:** Configured in `config/api.ts`. Defaults to `http://10.0.2.2:4000` for Android emulators.
+*   **Vercel:** The backend is configured for Vercel via `backend/vercel.json`.
 
 ## Key Commands
 
 | Task | Command |
 | :--- | :--- |
 | Start Expo | `npx expo start` |
+| Start Backend (Dev) | `cd backend && npm run dev` |
 | Run Android | `npx expo run:android` |
-| Start Backend | `node backend/server.js` |
 | Linting | `npm run lint` |
-| Reset Project | `npm run reset-project` |
+| Format Backend | `cd backend && npm run format` |
 
 ## Current Status & Observations
-*   **Backend Duplication:** Both `backend/` and `server/` directories exist. `backend/server.js` and `server/index.js` appear to contain identical or very similar logic. Standardize on one if possible.
-*   **Hardcoded Credentials:** MongoDB connection string is hardcoded in `server.js`. **Security Risk**: Should be moved to environment variables (`.env`).
-*   **API Logic:** The backend performs AQI calculations on-the-fly based on raw pollutant data.
+*   **Modernized Backend:** The backend has been migrated to a serverless-friendly structure in `backend/api/index.js` and uses environment variables.
+*   **Robust State Management:** The app uses specialized contexts and hooks for monitoring and notifications.
+*   **Background Monitoring:** Implemented background tasks to keep users informed even when the app is closed.
+*   **Data Visualization:** Extensive use of charts and maps for intuitive data representation.

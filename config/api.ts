@@ -36,18 +36,6 @@ export const buildApiUrl = (endpoint: string): string => {
   return `${API_CONFIG.BASE_URL}${endpoint}`
 }
 
-export class ApiError extends Error {
-  status: number;
-  data: any;
-
-  constructor(status: number, message: string, data?: any) {
-    super(message);
-    this.name = 'ApiError';
-    this.status = status;
-    this.data = data;
-  }
-}
-
 // Helper function for API requests with timeout
 export const apiRequest = async (url: string, options: RequestInit = {}) => {
   const controller = new AbortController()
@@ -66,21 +54,6 @@ export const apiRequest = async (url: string, options: RequestInit = {}) => {
     })
 
     clearTimeout(timeoutId)
-
-    if (!response.ok) {
-      let errorMessage = `API Error: ${response.status} ${response.statusText}`;
-      let errorData = null;
-
-      try {
-        errorData = await response.json();
-        errorMessage = errorData.message || errorData.error || errorMessage;
-      } catch (e) {
-        // Response body wasn't JSON, ignore
-      }
-
-      throw new ApiError(response.status, errorMessage, errorData);
-    }
-
     return response
   } catch (error) {
     clearTimeout(timeoutId)

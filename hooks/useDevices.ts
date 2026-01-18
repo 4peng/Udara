@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Alert } from "react-native"
 import { API_CONFIG, apiRequest, buildApiUrl } from "../config/api"
 
 export interface Device {
@@ -51,7 +50,10 @@ export const useDevices = () => {
       const url = buildApiUrl(API_CONFIG.ENDPOINTS.DEVICES)
 
       const response = await apiRequest(url)
-      // apiRequest handles response.ok checks now
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
 
       const data = await response.json()
 
@@ -83,15 +85,12 @@ export const useDevices = () => {
         setError(null)
       } else {
         console.error("Invalid API response structure:", data)
-        throw new Error("Invalid response format from server")
+        setError("Invalid response format")
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Network error occurred"
       setError(errorMessage)
       console.error("Error fetching devices:", err)
-      
-      // Visual feedback for the error
-      Alert.alert("Connection Error", errorMessage);
 
       // Set empty array on error to prevent crashes
       setDevices([])

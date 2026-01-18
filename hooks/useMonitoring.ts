@@ -2,7 +2,6 @@
 
 import * as SecureStore from "expo-secure-store"
 import { useCallback, useState } from "react"
-import { Alert } from "react-native"
 import { useAuth } from "./useAuth"
 import { API_CONFIG, apiRequest, buildApiUrl } from "../config/api"
 
@@ -66,16 +65,12 @@ export const useMonitoring = () => {
             userId: user.uid,
             deviceId: deviceId
           })
-        }).catch(err => {
-          console.error(`❌ Failed to ${subscribe ? 'subscribe' : 'unsubscribe'} ${deviceId}:`, err);
-          Alert.alert("Subscription Error", `Failed to update settings for device ${deviceId}. Please try again.`);
-        })
+        }).catch(err => console.error(`❌ Failed to ${subscribe ? 'subscribe' : 'unsubscribe'} ${deviceId}:`, err))
       )
 
       await Promise.all(promises)
     } catch (error) {
       console.error("❌ Error updating backend subscriptions:", error)
-      Alert.alert("Error", "Failed to update notification subscriptions.");
     }
   }
 
