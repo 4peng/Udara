@@ -7,50 +7,80 @@ const { processAllGases } = require('../utils/gasConversion');
 const {calculateMalaysianAPI} = require('../utils/malaysianApi');
 
 // GET /api/sensor/dashboard
-// Get latest readings for all active devices (for map markers)
+// Get latest readings for all active devices (Optimized Aggregation)
 router.get('/dashboard', async (req, res) => {
   try {
-    const devices = await Device.find({ isActive: true });
-    
-    const dashboardData = await Promise.all(
-      devices.map(async (device) => {
-        const latestReading = await SensorReading.getLatestByDevice(device.deviceId);
-        
-        // 1. Process Gases
-        const gasData = processAllGases(latestReading?.alphasense_voltages || {});
-        
-        // 2. Calculate Official Malaysian API
-        const apiInput = {
-            pm10: latestReading?.pm10,
-            pm2_5: latestReading?.pm2_5,
-            ...gasData
-        };
-        const apiResult = calculateMalaysianAPI(apiInput);
+    const dashboardData = await Device.aggregate([
+      // 1. Filter active devices
+      { $match: { isActive: true } },
+      
+      // 2. Lookup latest reading
+      {
+        $lookup: {
+          from: 'sensor_data_readings',
+          let: { devId: '$deviceId' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$metadata.device_id', '$$devId'] } } },
+            { $sort: { 'metadata.timestamp_server': -1 } },
+            { $limit: 1 }
+          ],
+          as: 'latestReading'
+        }
+      },
+      
+      // 3. Unwind the array (since we limited to 1, it's either object or empty)
+      { $unwind: { path: '$latestReading', preserveNullAndEmptyArrays: true } },
+      
+      // 4. Project and Format
+      {
+        $project: {
+          _id: 0,
+          id: '$_id',
+          deviceId: 1,
+          name: 1,
+          lat: '$location.coordinates.latitude',
+          lng: '$location.coordinates.longitude',
+          status: { $ifNull: ['$status', 'active'] },
+          lastUpdate: '$latestReading.metadata.timestamp_server',
+          
+          // Pass raw data for calculation helper
+          reading: '$latestReading'
+        }
+      }
+    ]);
 
-        return {
-          id: device._id,
-          deviceId: device.deviceId,
-          name: device.name,
-          lat: device.location.coordinates.latitude,
-          lng: device.location.coordinates.longitude,
-          status: device.status || 'active',
-          lastUpdate: latestReading?.metadata?.timestamp_server || null,
-          
-          // Use the Official API Result here
-          aqi: { 
-            value: apiResult.value, 
-            status: apiResult.status 
-          },
-          
-          // Send simplified metrics for the map preview
-          pm2_5: latestReading?.pm2_5 || null,
-          temperature: latestReading?.temperature_c || null,
-          humidity: latestReading?.humidity_pct || null
-        };
-      })
-    );
+    // 5. Post-process (API Calculation needs JS functions, can't be done easily in Mongo)
+    const processedData = dashboardData.map(device => {
+      const reading = device.reading || {};
+      const gasData = processAllGases(reading.alphasense_voltages || {});
+      
+      const apiInput = {
+        pm10: reading.pm10,
+        pm2_5: reading.pm2_5,
+        ...gasData
+      };
+      
+      const apiResult = calculateMalaysianAPI(apiInput);
+
+      return {
+        id: device.id,
+        deviceId: device.deviceId,
+        name: device.name,
+        lat: device.lat,
+        lng: device.lng,
+        status: device.status,
+        lastUpdate: device.lastUpdate,
+        aqi: { 
+          value: apiResult.value, 
+          status: apiResult.status 
+        },
+        pm2_5: reading.pm2_5 || null,
+        temperature: reading.temperature_c || null,
+        humidity: reading.humidity_pct || null
+      };
+    });
     
-    res.json(dashboardData);
+    res.json(processedData);
   } catch (err) {
     console.error('Error fetching dashboard data:', err);
     res.status(500).json({ message: 'Server Error', error: err.message });
