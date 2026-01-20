@@ -24,41 +24,8 @@ export const useDevicesWithMonitoring = () => {
   const lastMonitoredDeviceIds = useRef<string>("")
   const lastAlertTime = useRef<{ [key: string]: number }>({})
 
-  // 🔹 NEW: Check for hazardous conditions locally and trigger notification
-  useEffect(() => {
-    if (devices.length === 0) return
+  // Check for hazardous conditions logic REMOVED - Relies on Backend Push Notifications now.
 
-    const monitoredIds = getMonitoredDeviceIds()
-    
-    devices.forEach(device => {
-      // Only check monitored devices
-      if (!monitoredIds.includes(device.deviceId)) return
-      
-      // Check if AQI is hazardous (>200)
-      if (device.aqi >= 200) {
-        const now = Date.now()
-        const lastTime = lastAlertTime.current[device.deviceId] || 0
-        const cooldown = 60 * 1000 // 1 minute cooldown
-
-        if (now - lastTime > cooldown) {
-          
-          // Schedule local notification
-          Notifications.scheduleNotificationAsync({
-            content: {
-              title: "Hazardous Air Quality Detected!",
-              body: `AQI is ${device.aqi} at ${device.location}. Please take precautions immediately.`,
-              data: { deviceId: device.deviceId, aqi: device.aqi },
-              sound: 'default',
-            },
-            trigger: null, // Send immediately
-          })
-
-          // Update last alert time
-          lastAlertTime.current[device.deviceId] = now
-        }
-      }
-    })
-  }, [devices, initialized, getMonitoredDeviceIds])
 
   // Complete refresh function - resets everything to fresh state
   const forceCompleteReset = useCallback(async () => {

@@ -202,8 +202,6 @@ async function sendAlert(user, device, metric, value, threshold, severity, unit)
       notification.recipients[0].sentVia.push('push');
       notification.recipients[0].status = 'sent';
       notification.recipients[0].sentAt = new Date();
-      
-      cooldowns.set(cooldownKey, Date.now());
 
     } catch (error) {
       console.error('Failed to send push:', error);
@@ -214,6 +212,9 @@ async function sendAlert(user, device, metric, value, threshold, severity, unit)
       notification.recipients[0].status = 'sent'; // Delivered to in-app
       notification.recipients[0].sentAt = new Date();
   }
+
+  // Set cooldown regardless of delivery method
+  cooldowns.set(cooldownKey, Date.now());
 
   // Save to DB
   await notification.save();
@@ -257,4 +258,13 @@ function formatMetricName(key) {
     return names[key] || key.toUpperCase();
 }
 
-module.exports = { startRealtimeMonitoring };
+/**
+ * DEV TOOL: Reset all cooldowns
+ */
+function resetCooldowns() {
+  console.log(`🔄 [DevTool] Clearing ${cooldowns.size} cooldown entries...`);
+  cooldowns.clear();
+  return { success: true, message: "Cooldowns cleared" };
+}
+
+module.exports = { startRealtimeMonitoring, resetCooldowns };
