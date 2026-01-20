@@ -78,13 +78,7 @@ export default function SettingsScreen() {
 
   const renderHeader = () => (
     <View style={styles.header}>
-      <TouchableOpacity style={styles.backButton} onPress={() => {
-        router.back()
-      }}>
-        <Ionicons name="chevron-back" size={24} color="#333" />
-      </TouchableOpacity>
       <Text style={styles.headerTitle}>Settings</Text>
-      <View style={styles.headerSpacer} />
     </View>
   )
 

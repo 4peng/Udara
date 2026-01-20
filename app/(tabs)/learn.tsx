@@ -15,7 +15,7 @@ import {
     View,
 } from "react-native"
 
-const categories = ["Basics of Air Quality", "Health Effects", "Prevention", "Guides"]
+const categories = ["Basics", "Health", "Indoor Air", "Guides"]
 
 const featuredArticle = {
   id: 1,
@@ -23,7 +23,7 @@ const featuredArticle = {
   subtitle: "Learn how AQI affects your daily life and health",
   readTime: "5 min read",
   image:
-    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/%7B7D8F3658-99A2-459E-9884-89EB2381A82C%7D-0Csx34KA3qjSBPEtDUAZwBljaHQhLI.png",
+    "https://images.unsplash.com/photo-1532187643603-ba119ca4109e?w=800&fit=crop",
   category: "Basics of Air Quality",
 }
 
@@ -34,7 +34,7 @@ const articles = [
     description: "Essential tips for maintaining clean indoor air in your home and workplace",
     readTime: "4 min read",
     category: "Indoor Air",
-    image: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&h=200&fit=crop",
+    image: "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=800&fit=crop", // Home interior
     tags: ["Indoor Air", "Tips"],
   },
   {
@@ -52,7 +52,7 @@ const articles = [
     description: "How to protect yourself from poor air quality",
     readTime: "3 min read",
     category: "Health",
-    image: "https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=400&h=200&fit=crop",
+    image: "https://images.pexels.com/photos/3951881/pexels-photo-3951881.jpeg?auto=compress&cs=tinysrgb&w=800",
     tags: ["Health", "Protection"],
   },
   {
@@ -61,7 +61,7 @@ const articles = [
     description: "Guide to testing and monitoring air quality in your environment",
     readTime: "5 min read",
     category: "Guides",
-    image: "https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?w=400&h=200&fit=crop",
+    image: "https://images.pexels.com/photos/3735709/pexels-photo-3735709.jpeg?auto=compress&cs=tinysrgb&w=800",
     tags: ["Guides", "Testing"],
   },
   {
@@ -70,7 +70,7 @@ const articles = [
     description: "How air quality varies throughout the year and what to expect",
     readTime: "4 min read",
     category: "Basics",
-    image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=200&fit=crop",
+    image: "https://images.unsplash.com/photo-1476610182048-b716b8518aae?w=400&h=200&fit=crop",
     tags: ["Basics", "Seasonal"],
   },
   {
@@ -79,7 +79,7 @@ const articles = [
     description: "Best practices for outdoor activities during different air quality conditions",
     readTime: "6 min read",
     category: "Health",
-    image: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=200&fit=crop",
+    image: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&h=200&fit=crop",
     tags: ["Health", "Exercise"],
   },
 ]

@@ -2,12 +2,8 @@ import { Platform } from "react-native"
 
 // API Configuration
 export const API_CONFIG = {
-  // Update this URL based on your setup:
-
-  // API Configuration
-  // Use 10.0.2.2 to access localhost from Android Emulator
-  BASE_URL: process.env.EXPO_PUBLIC_API_URL || "http://10.0.2.2:4000",
-
+  BASE_URL: "https://udara.onrender.com",
+  // BASE_URL: "http://192.168.100.39:4000", 
   ENDPOINTS: {
     DEVICES: "/api/sensor/dashboard", // Updated to new dashboard endpoint
     DEVICE_DETAIL: (deviceId: string) => `/api/sensor/${deviceId}/latest`, // Updated to latest reading

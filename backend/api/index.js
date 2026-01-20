@@ -138,6 +138,11 @@ module.exports = app;
 // Start Server (Compatible with Render & Local)
 // Remove the NODE_VALUE restriction so it runs in Production too
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Server is running on http://localhost:${PORT}`);
+  try {
+    await connectToDatabase();
+  } catch (err) {
+    console.error("Initial DB Connection Failed:", err);
+  }
 });

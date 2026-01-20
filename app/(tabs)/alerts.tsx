@@ -1,6 +1,9 @@
+"use client"
+
 import { Ionicons } from "@expo/vector-icons"
 import { useState, useCallback } from "react"
 import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View, RefreshControl } from "react-native"
+import { router } from "expo-router"
 import { getAQIColor, getAQIStatus } from "../../utils/aqiUtils"
 import { useNotificationContext, UINotification } from "../../context/NotificationContext"
 
@@ -49,11 +52,14 @@ export default function AlertsScreen() {
     return grouped
   }
 
+  const handleAlertPress = (alert: UINotification) => {
+    if (alert.deviceId) {
+      router.push(`/sensor/${alert.deviceId}`)
+    }
+  }
+
   const renderHeader = () => (
     <View style={styles.header}>
-      <TouchableOpacity style={styles.backButton}>
-        <Ionicons name="chevron-back" size={24} color="#333" />
-      </TouchableOpacity>
       <Text style={styles.headerTitle}>Notification History</Text>
       <View style={styles.headerRight}>
         <TouchableOpacity style={styles.iconButton} onPress={fetchNotifications} disabled={loading}>
@@ -83,7 +89,11 @@ export default function AlertsScreen() {
   )
 
   const renderAlertCard = (alert: UINotification) => (
-    <TouchableOpacity key={alert.id} style={styles.alertCard}>
+    <TouchableOpacity 
+      key={alert.id} 
+      style={styles.alertCard}
+      onPress={() => handleAlertPress(alert)}
+    >
       <View style={styles.alertHeader}>
         <View style={styles.alertTimeContainer}>
           <View style={[styles.alertIcon, { backgroundColor: `${alert.color}20` }]}>

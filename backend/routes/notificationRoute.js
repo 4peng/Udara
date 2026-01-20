@@ -11,8 +11,20 @@ router.get('/:userId/notifications', async (req, res) => {
     const { userId } = req.params;
     const { limit = 50, skip = 0, unreadOnly = false } = req.query;
 
+    // Resolve User First (Handle Firebase UID vs Internal ID)
+    const user = await User.findOne({ 
+        $or: [{ userId: userId }, { clerkUserId: userId }] 
+    });
+
+    if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Use the resolved internal userId for querying notifications
+    const targetUserId = user.userId;
+
     // Build query
-    const query = { 'recipients.userId': userId };
+    const query = { 'recipients.userId': targetUserId };
     
     if (unreadOnly === 'true') {
       query['recipients.readAt'] = null;
@@ -30,16 +42,13 @@ router.get('/:userId/notifications', async (req, res) => {
     
     // Get unread count
     const unreadCount = await Notification.countDocuments({
-      'recipients.userId': userId,
+      'recipients.userId': targetUserId,
       'recipients.readAt': null
     });
 
     // Also get notifications from user's recentNotifications array (in-app)
-    const user = await User.findOne({ userId: userId })
-      .select('recentNotifications')
-      .lean();
-
-    const inAppNotifications = user?.recentNotifications || [];
+    // We already have the user object
+    const inAppNotifications = user.recentNotifications || [];
 
     // Combine and deduplicate
     const allNotifications = [
@@ -206,6 +215,48 @@ router.patch('/:userId/notifications/mark-all-read', async (req, res) => {
   }
 });
 
+// DELETE /api/user/:userId/notifications
+// Delete ALL notifications for a user
+router.delete('/:userId/notifications', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Resolve User First
+    const user = await User.findOne({ 
+        $or: [{ userId: userId }, { clerkUserId: userId }] 
+    });
+
+    if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const targetUserId = user.userId;
+
+    // 1. Delete from Notifications Collection
+    await Notification.deleteMany({
+      'recipients.userId': targetUserId
+    });
+
+    // 2. Clear from User Profile (recentNotifications)
+    await User.updateOne(
+      { userId: targetUserId },
+      { $set: { recentNotifications: [] } }
+    );
+
+    res.json({
+      success: true,
+      message: 'All notifications deleted'
+    });
+
+  } catch (error) {
+    console.error('Error deleting all notifications:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete all notifications'
+    });
+  }
+});
+
 // DELETE /api/user/:userId/notifications/:notificationId
 // Delete a notification
 router.delete('/:userId/notifications/:notificationId', async (req, res) => {
@@ -310,7 +361,11 @@ router.post('/subscribe', async (req, res) => {
   }
 
   try {
-    const user = await User.findOne({ userId: userId });
+    // Find user by either internal userId OR Auth Provider ID (clerkUserId)
+    const user = await User.findOne({ 
+        $or: [{ userId: userId }, { clerkUserId: userId }] 
+    });
+
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     user.subscribeToDevice(deviceId, deviceName);
@@ -333,7 +388,10 @@ router.post('/unsubscribe', async (req, res) => {
   }
 
   try {
-    const user = await User.findOne({ userId: userId });
+    const user = await User.findOne({ 
+        $or: [{ userId: userId }, { clerkUserId: userId }] 
+    });
+    
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     user.unsubscribeFromDevice(deviceId);
