@@ -1,28 +1,16 @@
-# .easignore - Files to exclude from EAS Build uploads
-# Inherit from .gitignore
-# (Files in .gitignore are automatically excluded unless you create .easignore, 
-#  but creating .easignore overrides .gitignore, so we should copy relevant parts or include everything)
+# .easignore
+# Files to EXCLUDE from EAS Build
+# (Starts with everything in .gitignore, but we can override)
 
-# Ignore the backend folder completely
-backend/
-
-# Ignore local builds/artifacts
-android/
-ios/
+node_modules/
 .expo/
 dist/
 web-build/
 
-# Ignore node_modules (EAS installs them fresh)
-node_modules/
+# Keep local env files out of the build? 
+# Usually you want .env in the build if you don't use EAS Secrets
+# .env
 
-# Ignore sensitive env files (EAS uses Secrets)
-.env
-.env.local
-.env.*
-
-# Ignore logs and temp files
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# We definitely DO want these files in the build, so we do NOT list them here.
+# google-services.json (Implicitly included)
+# package.json (Implicitly included)
