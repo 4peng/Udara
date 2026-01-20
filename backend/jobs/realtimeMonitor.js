@@ -53,16 +53,20 @@ function startRealtimeMonitoring() {
  */
 async function checkSingleReading(reading) {
   const deviceId = reading.metadata.device_id;
+  console.log(`🔍 [Debug] Checking reading for ${deviceId}...`);
 
   // 1. Get Device Details
   const device = await Device.findOne({ deviceId: deviceId });
-  if (!device || !device.isActive) return; // Ignore unknown/inactive devices
+  if (!device) { console.log(`❌ [Debug] Device ${deviceId} not found in DB`); return; }
+  if (!device.isActive) { console.log(`❌ [Debug] Device ${deviceId} is inactive`); return; }
 
   // 2. Find users subscribed to this device
   const users = await User.find({
     'subscriptions.deviceId': deviceId,
     'subscriptions.isActive': true
   });
+  
+  console.log(`🔍 [Debug] Found ${users.length} active subscribers for ${deviceId}`);
 
   // 3. Process alerts for each user
   for (const user of users) {
@@ -128,6 +132,7 @@ async function processUserAlerts(user, device, reading) {
     }
 
     if (severity) {
+      console.log(`🔍 [Debug] Threshold exceeded for ${user.email}: ${m.key}=${m.val} (${severity})`);
       await sendAlert(user, device, m.key, m.val, thresholdValue, severity, config.unit);
     }
   }
@@ -142,6 +147,7 @@ async function sendAlert(user, device, metric, value, threshold, severity, unit)
 
   // Check cooldown
   if (lastSent && (Date.now() - lastSent < COOLDOWN_MS)) {
+    console.log(`⏳ [Debug] Cooldown active for ${user.email} (${metric})`);
     return; // Skip if sent recently
   }
 

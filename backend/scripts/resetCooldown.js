@@ -3,8 +3,8 @@
 
 const fetch = require('node-fetch');
 
-// Default to local, but allow environment override
-const API_URL = process.env.API_URL || 'http://localhost:4000';
+// Default to Render (Production), use 'http://localhost:4000' for local testing
+const API_URL = process.env.API_URL || 'https://udara.onrender.com';
 
 async function reset() {
   console.log(`🔄 Requesting cooldown reset from ${API_URL}...`);
