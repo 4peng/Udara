@@ -1,16 +1,30 @@
 # .easignore
-# Files to EXCLUDE from EAS Build
-# (Starts with everything in .gitignore, but we can override)
-
+# Exclude everything standard
 node_modules/
 .expo/
 dist/
 web-build/
+*.tsbuildinfo
 
-# Keep local env files out of the build? 
-# Usually you want .env in the build if you don't use EAS Secrets
-# .env
+# Exclude native folders (Let EAS Prebuild generate clean ones)
+android/
+ios/
+.kotlin/
 
-# We definitely DO want these files in the build, so we do NOT list them here.
-# google-services.json (Implicitly included)
-# package.json (Implicitly included)
+# Exclude large documentation/report files
+*.pdf
+*.md
+
+# Exclude debug/error logs
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# Exclude secret keys that are NOT needed for the build
+*-firebase-adminsdk-*.json
+
+# !!! EXCEPTIONS (Files we WANT to upload) !!!
+# We want these, so we DO NOT list them here (or we verify they aren't matched above)
+
+# google-services.json is NOT ignored here, so it WILL be uploaded.
+# .env is NOT ignored here, so it WILL be uploaded.
