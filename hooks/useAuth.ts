@@ -13,19 +13,57 @@ import {
 import { useEffect, useState } from "react"
 import { auth } from "../config/firebase"
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { API_CONFIG } from "../config/api";
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // Sync user to backend on auth state change
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user)
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setUser(firebaseUser)
       setLoading(false)
+
+      if (firebaseUser) {
+        await syncUserWithBackend(firebaseUser);
+      }
     })
 
     return unsubscribe
   }, [])
+
+  const syncUserWithBackend = async (firebaseUser: User) => {
+    try {
+      // Prepare payload using Firebase UID as 'clerkUserId' (for backend compatibility)
+      const payload = {
+        clerkUserId: firebaseUser.uid,
+        email: firebaseUser.email,
+        name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || "User",
+        phone: firebaseUser.phoneNumber || undefined,
+        location: "Unknown" // Optional
+      };
+
+      console.log("🔄 Syncing user with backend:", payload.email);
+
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/user`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        console.error("❌ Backend sync failed:", response.status);
+      } else {
+        const data = await response.json();
+        console.log("✅ Backend sync success. MongoID:", data.user?.userId);
+      }
+    } catch (error) {
+      console.error("❌ Error syncing user to backend:", error);
+    }
+  };
 
   const signIn = async (email: string, password: string) => {
     try {

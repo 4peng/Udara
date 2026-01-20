@@ -18,6 +18,7 @@ export interface UINotification {
   color: string;
   icon: string;
   timestamp: number;
+  deviceId?: string;
 }
 
 interface NotificationContextType {
@@ -72,32 +73,48 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     
     setLoading(true);
     try {
+      console.log(`📡 Fetching notifications for ${user.uid}...`);
       const response = await fetch(`${API_CONFIG.BASE_URL}/api/notifications/${user.uid}/notifications?limit=50`);
       const data = await response.json();
       
+      console.log(`📥 Received ${data.notifications?.length || 0} notifications from backend`);
+
       if (data.success && Array.isArray(data.notifications)) {
         // Transform backend notifications to UI format
         const fetchedNotifications: UINotification[] = data.notifications.map((n: any) => {
-           const severity = n.trigger?.severity || 'unknown';
-           const metric = n.trigger?.metric || 'AQI';
-           const value = n.trigger?.value || 0;
-           const date = new Date(n.createdAt || n.sentAt);
-           const aqi = n.trigger?.metric === 'aqi' ? n.trigger.value : 0; // Or estimate AQI if needed
+           const severity = n.trigger?.severity || n.severity || 'unknown';
+           const metric = n.trigger?.metric || n.metric || 'AQI';
+           // Handle varying field names from different sources (DB vs User Profile)
+           const dateVal = n.createdAt || n.sentAt || new Date().toISOString();
+           let date: Date;
+           try {
+             date = new Date(dateVal);
+             if (isNaN(date.getTime())) throw new Error("Invalid Date");
+           } catch (e) {
+             console.warn("Invalid date in notification:", dateVal);
+             date = new Date();
+           }
+
+           const aqi = n.trigger?.metric === 'aqi' ? n.trigger.value : (n.value || 0);
+           const deviceId = n.trigger?.deviceId || n.deviceId;
 
            return {
-             id: n.notificationId || n._id,
+             id: n.notificationId || n._id || Math.random().toString(),
              time: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-             location: n.content?.subject || "Alert", // Use title as location/subject
+             location: n.content?.subject || n.message || "Alert", 
              aqi: aqi,
              level: severity.charAt(0).toUpperCase() + severity.slice(1),
-             message: n.content?.message || "No details",
-             date: "Today", // Will be recalculated by UI helper
+             message: n.content?.message || n.message || "No details",
+             date: "Today", 
              rawDate: date.toISOString(),
              color: severity === 'critical' ? '#F44336' : (severity === 'warning' ? '#FF9800' : '#4CAF50'),
              icon: severity === 'critical' ? 'warning' : 'notifications',
-             timestamp: date.getTime()
+             timestamp: date.getTime(),
+             deviceId: deviceId
            };
-        });
+        })
+        // Filter out ghost alerts (invalid data)
+        .filter(n => !(n.aqi === 0 && n.message === "No details" && n.level === "Unknown"));
         
         setNotifications(fetchedNotifications);
         saveNotifications(fetchedNotifications);
@@ -110,9 +127,28 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   };
 
   const clearNotifications = async () => {
+    if (!user?.uid) return;
+    
     try {
-        await AsyncStorage.removeItem('notifications');
+        console.log(`🗑️ Clearing all notifications for ${user.uid}...`);
+        
+        // Optimistic UI update
         setNotifications([]);
+        await AsyncStorage.removeItem('notifications');
+
+        // Call Backend
+        const response = await fetch(`${API_CONFIG.BASE_URL}/api/notifications/${user.uid}/notifications`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+            console.error('Failed to clear notifications on server');
+            // If failed, maybe refetch to restore state?
+            fetchNotifications();
+        } else {
+            console.log('✅ History cleared on server');
+        }
+
     } catch (error) {
         console.error('Failed to clear notifications', error);
     }
@@ -134,6 +170,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     const notifDate = notif.date ? new Date(notif.date) : now;
     
     const aqi = data.aqi || 0;
+    const deviceId = data.deviceId;
     
     const newNotif: UINotification = {
       id: notif.request.identifier,
@@ -146,7 +183,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       rawDate: notifDate.toISOString(),
       color: getAQIColor(aqi),
       icon: "warning",
-      timestamp: notifDate.getTime()
+      timestamp: notifDate.getTime(),
+      deviceId: deviceId
     };
 
     setNotifications(prev => {

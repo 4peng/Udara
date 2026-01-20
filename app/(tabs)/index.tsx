@@ -15,6 +15,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  RefreshControl,
 } from "react-native"
 import LeafletMap from "../../components/LeafletMap"
 import { useDevicesWithMonitoring } from "../../hooks/useDevicesWithMonitoring"
@@ -35,6 +36,13 @@ export default function HomeScreen() {
   const [lastRefreshTime, setLastRefreshTime] = useState<Date>(new Date())
   const [timeUntilNextRefresh, setTimeUntilNextRefresh] = useState<number>(AUTO_REFRESH_INTERVAL)
   const [isAutoRefreshing, setIsAutoRefreshing] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true)
+    await forceCompleteReset()
+    setRefreshing(false)
+  }, [forceCompleteReset])
 
   // Use refs to manage intervals and avoid memory leaks
   const autoRefreshInterval = useRef<NodeJS.Timeout | null>(null)
@@ -514,7 +522,18 @@ export default function HomeScreen() {
         </View>
       )}
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing || loading}
+            onRefresh={onRefresh}
+            colors={["#4361EE"]}
+            tintColor="#4361EE"
+          />
+        }
+      >
         {/* AQI Display */}
         {renderAQICircle()}
 

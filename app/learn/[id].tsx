@@ -2,52 +2,24 @@
 
 import { Ionicons } from "@expo/vector-icons"
 import { router, useLocalSearchParams, Stack } from "expo-router"
+import { useState, useEffect } from "react"
 import { Image, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native"
+import AsyncStorage from "@react-native-async-storage/async-storage"
 
-// Mock article content
+// Mock article content with high-quality images
 const articleContent = {
   1: {
     title: "Understanding Air Quality Index (AQI)",
     subtitle: "Learn how AQI affects your daily life and health",
     readTime: "5 min read",
-    image:
-      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/%7B7D8F3658-99A2-459E-9884-89EB2381A82C%7D-0Csx34KA3qjSBPEtDUAZwBljaHQhLI.png",
-    content: `
-The Air Quality Index (AQI) is a standardized system used to communicate how polluted the air currently is or how polluted it is forecast to become. The AQI focuses on health effects you may experience within a few hours or days after breathing polluted air.
-
-## What is AQI?
-
-The AQI is calculated for five major air pollutants regulated by the Clean Air Act:
-- Ground-level ozone
-- Particle pollution (PM2.5 and PM10)
-- Carbon monoxide
-- Sulfur dioxide
-- Nitrogen dioxide
-
-## AQI Categories
-
-**Good (0-50)**: Air quality is considered satisfactory, and air pollution poses little or no risk.
-
-**Moderate (51-100)**: Air quality is acceptable; however, for some pollutants there may be a moderate health concern for a very small number of people.
-
-**Unhealthy for Sensitive Groups (101-150)**: Members of sensitive groups may experience health effects. The general public is not likely to be affected.
-
-**Unhealthy (151-200)**: Everyone may begin to experience health effects; members of sensitive groups may experience more serious health effects.
-
-**Very Unhealthy (201-300)**: Health warnings of emergency conditions. The entire population is more likely to be affected.
-
-**Hazardous (301-500)**: Health alert: everyone may experience more serious health effects.
-
-## How to Use AQI Information
-
-Check the daily AQI forecast in your area and plan your activities accordingly. When AQI values are above 100, air quality is considered unhealthy for sensitive groups, and you should consider limiting prolonged outdoor exertion.
-    `,
+    image: "https://images.unsplash.com/photo-1532187643603-ba119ca4109e?w=800&fit=crop",
+    content: "\nThe Air Quality Index (AQI) is a standardized system used to communicate how polluted the air currently is or how polluted it is forecast to become. The AQI focuses on health effects you may experience within a few hours or days after breathing polluted air.\n\n## What is AQI?\n\nThe AQI is calculated for five major air pollutants regulated by the Clean Air Act:\n- Ground-level ozone\n- Particle pollution (PM2.5 and PM10)\n- Carbon monoxide\n- Sulfur dioxide\n- Nitrogen dioxide\n\n## AQI Categories\n\n**Good (0-50)**: Air quality is considered satisfactory, and air pollution poses little or no risk.\n\n**Moderate (51-100)**: Air quality is acceptable; however, for some pollutants there may be a moderate health concern for a very small number of people.\n\n**Unhealthy for Sensitive Groups (101-150)**: Members of sensitive groups may experience health effects. The general public is not likely to be affected.\n\n**Unhealthy (151-200)**: Everyone may begin to experience health effects; members of sensitive groups may experience more serious health effects.\n\n**Very Unhealthy (201-300)**: Health warnings of emergency conditions. The entire population is more likely to be affected.\n\n**Hazardous (301-500)**: Health alert: everyone may experience more serious health effects.\n\n## How to Use AQI Information\n\nCheck the daily AQI forecast in your area and plan your activities accordingly. When AQI values are above 100, air quality is considered unhealthy for sensitive groups, and you should consider limiting prolonged outdoor exertion.\n    ",
   },
   2: {
     title: "Indoor Air Quality Guide",
     subtitle: "Essential tips for maintaining clean indoor air in your home and workplace",
     readTime: "4 min read",
-    image: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&h=200&fit=crop",
+    image: "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=800&fit=crop",
     content: `
 Many people don't realize that indoor air can be significantly more polluted than outdoor air. Since we spend about 90% of our time indoors, maintaining good indoor air quality (IAQ) is crucial for health.
 
@@ -75,7 +47,7 @@ Many people don't realize that indoor air can be significantly more polluted tha
     title: "Air Pollution Sources",
     subtitle: "Common sources of air pollution and their impact on health",
     readTime: "6 min read",
-    image: "https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?w=400&h=200&fit=crop",
+    image: "https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?w=800&fit=crop",
     content: `
 Air pollution comes from many different sources, both natural and man-made. Understanding these sources is the first step in reducing exposure.
 
@@ -106,7 +78,7 @@ Simple actions like carpooling, using public transport, conserving energy at hom
     title: "Protective Measures",
     subtitle: "How to protect yourself from poor air quality",
     readTime: "3 min read",
-    image: "https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=400&h=200&fit=crop",
+    image: "https://images.pexels.com/photos/3951881/pexels-photo-3951881.jpeg?auto=compress&cs=tinysrgb&w=800",
     content: `
 When air quality reaches unhealthy levels, taking immediate protective steps can prevent short-term symptoms and long-term health issues.
 
@@ -134,7 +106,7 @@ If you must be outside during hazardous conditions, N95 or KN95 respirators can 
     title: "Air Quality Testing",
     subtitle: "Guide to testing and monitoring air quality in your environment",
     readTime: "5 min read",
-    image: "https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?w=400&h=200&fit=crop",
+    image: "https://images.pexels.com/photos/3735709/pexels-photo-3735709.jpeg?auto=compress&cs=tinysrgb&w=800",
     content: `
 Monitoring the air you breathe is empowering. Here's how you can test and track air quality in your immediate environment.
 
@@ -166,69 +138,56 @@ Don't panic over short-term spikes (like from cooking). Look for long-term trend
     title: "Seasonal Air Quality Changes",
     subtitle: "How air quality varies throughout the year and what to expect",
     readTime: "4 min read",
-    image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=200&fit=crop",
-    content: `
-Air quality is not static; it fluctuates with the seasons due to changes in weather patterns and human activities.
-
-## Winter
-
-**Inversions**: Cold air near the ground can get trapped by a layer of warm air above, holding pollutants close to the surface.
-**Heating**: Wood burning and increased energy use for heating contribute to higher particulate matter levels.
-
-## Spring
-
-**Allergens**: Tree and grass pollens are at their peak, affecting those with allergies and asthma.
-**Wind**: Windy conditions can transport dust and pollutants over long distances.
-
-## Summer
-
-**Ozone**: Sunlight and heat react with emissions from vehicles and industry to form ground-level ozone, a powerful respiratory irritant.
-**Wildfires**: Heat and drought increase the risk of wildfires, which can degrade air quality across entire continents.
-
-## Autumn
-
-**Stagnation**: Calm weather can lead to pollutant buildup.
-**Leaf Burning**: In some areas, burning yard waste releases smoke and particles.
-
-## Preparation
-
-Knowing these patterns helps you prepare—like ensuring you have allergy medication in spring or checking ozone forecasts in summer.
-    `,
+    image: "https://images.unsplash.com/photo-1476610182048-b716b8518aae?w=800&fit=crop",
+    content: "\nAir quality is not static; it fluctuates with the seasons due to changes in weather patterns and human activities.\n\n## Winter\n\n**Inversions**: Cold air near the ground can get trapped by a layer of warm air above, holding pollutants close to the surface.\n**Heating**: Wood burning and increased energy use for heating contribute to higher particulate matter levels.\n\n## Spring\n\n**Allergens**: Tree and grass pollens are at their peak, affecting those with allergies and asthma.\n**Wind**: Windy conditions can transport dust and pollutants over long distances.\n\n## Summer\n\n**Ozone**: Sunlight and heat react with emissions from vehicles and industry to form ground-level ozone, a powerful respiratory irritant.\n**Wildfires**: Heat and drought increase the risk of wildfires, which can degrade air quality across entire continents.\n\n## Autumn\n\n**Stagnation**: Calm weather can lead to pollutant buildup.\n**Leaf Burning**: In some areas, burning yard waste releases smoke and particles.\n\n## Preparation\n\nKnowing these patterns helps you prepare—like ensuring you have allergy medication in spring or checking ozone forecasts in summer.\n    ",
   },
   7: {
     title: "Air Quality and Exercise",
     subtitle: "Best practices for outdoor activities during different air quality conditions",
     readTime: "6 min read",
-    image: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=200&fit=crop",
-    content: `
-Exercise is vital for health, but exercising in polluted air can be counterproductive. During physical activity, you breathe deeper and faster, inhaling more pollutants directly into your lungs.
-
-## When to Exercise Outdoors
-
-- **AQI 0-50 (Good)**: Ideal conditions for all outdoor activities.
-- **AQI 51-100 (Moderate)**: Generally safe, but unusually sensitive people should consider reducing prolonged heavy exertion.
-
-## When to Be Cautious
-
-- **AQI 101-150 (Unhealthy for Sensitive Groups)**: Adults with lung disease, older adults, and children should reduce prolonged heavy exertion. Healthy adults can likely continue but should monitor for symptoms.
-- **Traffic**: Avoid running or cycling near busy roads where pollution concentrations are highest.
-
-## When to Move Indoors
-
-- **AQI 151+ (Unhealthy)**: Everyone should avoid prolonged or heavy exertion outdoors. Move your workout to a gym, home, or indoor track.
-
-## Tips for Safer Workouts
-
-- **Time of Day**: Ozone is usually lower in the morning.
-- **Location**: Exercise in parks or green spaces away from highways.
-- **Listen to Your Body**: If you feel chest tightness, coughing, or difficulty breathing, stop immediately.
-    `,
+    image: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=800&fit=crop",
+    content: "\nExercise is vital for health, but exercising in polluted air can be counterproductive. During physical activity, you breathe deeper and faster, inhaling more pollutants directly into your lungs.\n\n## When to Exercise Outdoors\n\n- **AQI 0-50 (Good)**: Ideal conditions for all outdoor activities.\n- **AQI 51-100 (Moderate)**: Generally safe, but unusually sensitive people should consider reducing prolonged heavy exertion.\n\n## When to Be Cautious\n\n- **AQI 101-150 (Unhealthy for Sensitive Groups)**: Adults with lung disease, older adults, and children should reduce prolonged heavy exertion. Healthy adults can likely continue but should monitor for symptoms.\n- **Traffic**: Avoid running or cycling near busy roads where pollution concentrations are highest.\n\n## When to Move Indoors\n\n- **AQI 151+ (Unhealthy)**: Everyone should avoid prolonged or heavy exertion outdoors. Move your workout to a gym, home, or indoor track.\n\n## Tips for Safer Workouts\n\n- **Time of Day**: Ozone is usually lower in the morning.\n- **Location**: Exercise in parks or green spaces away from highways.\n- **Listen to Your Body**: If you feel chest tightness, coughing, or difficulty breathing, stop immediately.\n    ",
   },
 }
 
 export default function ArticleScreen() {
   const { id } = useLocalSearchParams()
   const article = articleContent[id as keyof typeof articleContent]
+  const [isBookmarked, setIsBookmarked] = useState(false)
+
+  useEffect(() => {
+    checkBookmarkStatus()
+  }, [id])
+
+  const checkBookmarkStatus = async () => {
+    try {
+      const bookmarks = await AsyncStorage.getItem('bookmarked_articles')
+      if (bookmarks) {
+        const parsed = JSON.parse(bookmarks)
+        setIsBookmarked(parsed.includes(id))
+      }
+    } catch (e) {
+      console.error("Failed to load bookmarks", e)
+    }
+  }
+
+  const toggleBookmark = async () => {
+    try {
+      const bookmarks = await AsyncStorage.getItem('bookmarked_articles')
+      let parsed = bookmarks ? JSON.parse(bookmarks) : []
+      
+      if (isBookmarked) {
+        parsed = parsed.filter((articleId: string) => articleId !== id)
+      } else {
+        if (!parsed.includes(id)) parsed.push(id)
+      }
+      
+      await AsyncStorage.setItem('bookmarked_articles', JSON.stringify(parsed))
+      setIsBookmarked(!isBookmarked)
+    } catch (e) {
+      console.error("Failed to toggle bookmark", e)
+    }
+  }
 
   if (!article) {
     return (
@@ -250,7 +209,13 @@ export default function ArticleScreen() {
         <Ionicons name="chevron-back" size={24} color="#333" />
       </TouchableOpacity>
       <View style={styles.headerActions}>
-        {/* Buttons removed as requested */}
+        <TouchableOpacity style={styles.headerButton} onPress={toggleBookmark}>
+          <Ionicons 
+            name={isBookmarked ? "bookmark" : "bookmark-outline"} 
+            size={24} 
+            color={isBookmarked ? "#4361EE" : "#333"} 
+          />
+        </TouchableOpacity>
       </View>
     </View>
   )

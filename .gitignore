@@ -43,4 +43,13 @@ Udara Web Dashboard User Guide (1).pdf
 Udara_Mobile_App_User_Guide.md
 FYP Report 2 .pdf
 .env
-.env
+.env*
+google-services.json
+*-firebase-adminsdk-*.json
+*.json
+!app.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!eas.json
+

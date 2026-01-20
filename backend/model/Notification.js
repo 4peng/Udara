@@ -57,7 +57,7 @@ const notificationSchema = new mongoose.Schema({
     name: String,
     sentVia: [{
       type: String,
-      enum: ['email', 'inApp', 'sms']
+      enum: ['email', 'inApp', 'sms', 'push']
     }],
     status: {
       type: String,

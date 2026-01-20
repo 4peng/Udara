@@ -7,6 +7,8 @@ import 'react-native-reanimated';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { NotificationProvider } from '../context/NotificationContext';
 import { MonitoringProvider } from '../context/MonitoringContext';
+import { ConnectivityProvider } from '../context/ConnectivityContext';
+import OfflineBanner from '../components/OfflineBanner';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -20,17 +22,23 @@ export default function RootLayout() {
   }
 
   return (
-    <NotificationProvider>
-      <MonitoringProvider>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <Stack>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-            <Stack.Screen name="+not-found" />
-          </Stack>
-          <StatusBar style="auto" />
-        </ThemeProvider>
-      </MonitoringProvider>
-    </NotificationProvider>
+    <ConnectivityProvider>
+      <NotificationProvider>
+        <MonitoringProvider>
+          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+            <OfflineBanner />
+            <Stack>
+              <Stack.Screen name="index" options={{ headerShown: false }} />
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+              <Stack.Screen name="sensor/[id]" options={{ headerShown: false }} />
+              <Stack.Screen name="learn/[id]" options={{ headerShown: false }} />
+              <Stack.Screen name="+not-found" />
+            </Stack>
+            <StatusBar style="auto" />
+          </ThemeProvider>
+        </MonitoringProvider>
+      </NotificationProvider>
+    </ConnectivityProvider>
   );
 }

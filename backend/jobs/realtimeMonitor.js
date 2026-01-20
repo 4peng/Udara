@@ -78,14 +78,18 @@ async function checkSingleReading(reading) {
  * Check thresholds for a single user
  */
 async function processUserAlerts(user, device, reading) {
+  console.log(`[Debug] Processing alerts for user ${user.email} on device ${device.deviceId}`);
+  
   const subscription = user.subscriptions.find(
-    s => s.deviceId === device.deviceId && s.isActive
+    s => s.deviceId.toUpperCase() === device.deviceId.toUpperCase() && s.isActive
   );
-  if (!subscription) return;
+  
+  if (!subscription) {
+      console.log(`[Debug] Subscription not found in memory for ${user.email}`);
+      return;
+  }
 
   const thresholds = subscription.customThresholds;
-  
-  // Normalize data access (handle potentially missing fields)
   const voltages = reading.alphasense_voltages || {};
   
   const metricsToCheck = [
@@ -95,46 +99,43 @@ async function processUserAlerts(user, device, reading) {
     { key: 'no2', val: voltages.NO2_ppb },
     { key: 'so2', val: voltages.SO2_ppb },
     { key: 'o3', val: voltages.O3_ppb },
-    { key: 'temperature_c', val: reading.temperature_c },
-    { key: 'humidity_pct', val: reading.humidity_pct }
+    // Temperature/Humidity kept separate if needed, or excluded if you only want AQI
   ];
+
+  let maxSeverity = 0; // 0:None, 1:Warning, 2:Critical
+  let worstMetric = null;
 
   for (const m of metricsToCheck) {
     const config = thresholds[m.key];
-    
-    // Skip if metric is missing in reading OR disabled in config
     if (!config || !config.enabled || m.val === undefined || m.val === null) continue;
 
-    // Determine severity
-    let severity = null;
-    let thresholdValue = 0;
-
-    // Logic for "Max" thresholds (Pollutants, Temp Max)
+    // Logic for "Max" thresholds
     if (config.max !== undefined || config.critical !== undefined) {
-       const critical = config.critical || config.max; // Handle different naming
-       const warning = config.warning || (critical * 0.7); // Fallback
+       const critical = config.critical || config.max; 
+       const warning = config.warning || (critical * 0.7); 
 
        if (m.val >= critical) {
-         severity = 'critical';
-         thresholdValue = critical;
+         if (maxSeverity < 2) { maxSeverity = 2; worstMetric = { ...m, ...config, severity: 'critical' }; }
        } else if (m.val >= warning) {
-         severity = 'warning';
-         thresholdValue = warning;
+         if (maxSeverity < 1) { maxSeverity = 1; worstMetric = { ...m, ...config, severity: 'warning' }; }
        }
     }
-    
-    // Logic for "Min" thresholds (Temp Min)
-    if (config.min !== undefined) {
-        if (m.val <= config.min) {
-            severity = 'warning'; // Usually low temp is just warning
-            thresholdValue = config.min;
-        }
-    }
+  }
 
-    if (severity) {
-      console.log(`🔍 [Debug] Threshold exceeded for ${user.email}: ${m.key}=${m.val} (${severity})`);
-      await sendAlert(user, device, m.key, m.val, thresholdValue, severity, config.unit);
-    }
+  // If we have a violation, send ONE consolidated alert
+  if (worstMetric) {
+      console.log(`🔍 [Debug] Consolidated Alert for ${user.email}: ${worstMetric.severity.toUpperCase()} (Driven by ${worstMetric.key})`);
+      
+      // Use 'aqi' as the key for consolidated alerts to prevent spamming individual gases
+      await sendAlert(
+          user, 
+          device, 
+          'aqi', // metric key 
+          worstMetric.val, // value of the worst pollutant
+          worstMetric.critical || worstMetric.max, // threshold
+          worstMetric.severity, 
+          worstMetric.unit
+      );
   }
 }
 
@@ -142,7 +143,7 @@ async function processUserAlerts(user, device, reading) {
  * Send the actual notification
  */
 async function sendAlert(user, device, metric, value, threshold, severity, unit) {
-  const cooldownKey = `${user.userId}_${device.deviceId}_${metric}_${severity}`;
+  const cooldownKey = `${user.userId || user.clerkUserId}_${device.deviceId}_${metric}_${severity}`;
   const lastSent = cooldowns.get(cooldownKey);
 
   // Check cooldown
@@ -153,10 +154,14 @@ async function sendAlert(user, device, metric, value, threshold, severity, unit)
 
   console.log(`⚠️ Alert: ${user.email} - ${metric} is ${value} (Threshold: ${threshold})`);
 
+  // SAFETY: Ensure userId is never null (fallback to clerkUserId or random string if database is corrupted)
+  const safeUserId = user.userId || user.clerkUserId || `Unknown-${Date.now()}`;
+
   // Create Notification DB Entry
   const notificationId = `NOTIF-${Date.now()}-${Math.floor(Math.random()*1000)}`;
   const title = `Air Quality Alert: ${device.name}`;
-  const message = `${formatMetricName(metric)} is ${severity} (${value} ${unit}). Limit is ${threshold}.`;
+  // Generic message for AQI
+  const message = `Air Quality is ${severity.toUpperCase()}. Driven by ${formatMetricName(metric)} (${value} ${unit}).`;
 
   const notification = new Notification({
     notificationId,
@@ -169,7 +174,7 @@ async function sendAlert(user, device, metric, value, threshold, severity, unit)
       severity
     },
     recipients: [{
-      userId: user.userId,
+      userId: safeUserId, // Use SAFE ID
       email: user.email,
       name: user.name,
       sentVia: ['inApp'],
