@@ -2,7 +2,8 @@
 
 import { Ionicons } from "@expo/vector-icons"
 import { Link, router } from "expo-router"
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -24,7 +25,50 @@ export default function SignUpScreen() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  const { signUp } = useAuth()
+  const { signUp, signInWithGoogle } = useAuth()
+
+  useEffect(() => {
+    GoogleSignin.configure({
+      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    });
+  }, []);
+
+  const nativeGoogleSignIn = async () => {
+    setLoading(true);
+    try {
+      await GoogleSignin.hasPlayServices();
+      const response = await GoogleSignin.signIn();
+      const idToken = response.data?.idToken;
+      if (idToken) {
+        handleGoogleSignIn(idToken);
+      } else {
+        Alert.alert("Error", "No ID token found");
+        setLoading(false);
+      }
+    } catch (error: any) {
+      console.error("Google Sign In Error:", error);
+      if (error.code) {
+        console.log("Error code:", error.code);
+      }
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async (idToken: string) => {
+    try {
+      const result = await signInWithGoogle(idToken);
+      if (result.success) {
+        router.replace("/(tabs)");
+      } else {
+        Alert.alert("Google Sign In Failed", result.error);
+      }
+    } catch (error) {
+      console.error("Google Sign In Error:", error);
+      Alert.alert("Error", "An unexpected error occurred during Google Sign In");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSignUp = async () => {
     if (!fullName || !email || !password) {
@@ -123,14 +167,11 @@ export default function SignUpScreen() {
           <Text style={styles.orText}>Or continue with</Text>
 
           <View style={styles.socialButtonsContainer}>
-            <TouchableOpacity style={styles.socialButton}>
+            <TouchableOpacity 
+              style={styles.socialButton}
+              onPress={nativeGoogleSignIn}
+            >
               <Ionicons name="logo-google" size={24} color="#000" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.socialButton}>
-              <Ionicons name="logo-apple" size={24} color="#000" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.socialButton}>
-              <Ionicons name="logo-facebook" size={24} color="#000" />
             </TouchableOpacity>
           </View>
 

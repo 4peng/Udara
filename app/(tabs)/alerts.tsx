@@ -1,16 +1,21 @@
-"use client"
-
 import { Ionicons } from "@expo/vector-icons"
-import { useState } from "react"
-import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native"
+import { useState, useCallback } from "react"
+import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View, RefreshControl } from "react-native"
 import { getAQIColor, getAQIStatus } from "../../utils/aqiUtils"
 import { useNotificationContext, UINotification } from "../../context/NotificationContext"
 
 const alertTypes = ["All", "Unhealthy", "Moderate", "Healthy"]
 
 export default function AlertsScreen() {
-  const { notifications, clearNotifications } = useNotificationContext()
+  const { notifications, clearNotifications, fetchNotifications, loading } = useNotificationContext()
   const [selectedFilter, setSelectedFilter] = useState("All")
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchNotifications();
+    setRefreshing(false);
+  }, [fetchNotifications]);
 
   const getFilteredAlerts = () => {
     if (selectedFilter === "All") return notifications
@@ -50,9 +55,14 @@ export default function AlertsScreen() {
         <Ionicons name="chevron-back" size={24} color="#333" />
       </TouchableOpacity>
       <Text style={styles.headerTitle}>Notification History</Text>
-      <TouchableOpacity style={styles.filterButton} onPress={clearNotifications}>
-        <Ionicons name="trash-outline" size={24} color="#333" />
-      </TouchableOpacity>
+      <View style={styles.headerRight}>
+        <TouchableOpacity style={styles.iconButton} onPress={fetchNotifications} disabled={loading}>
+          <Ionicons name="refresh" size={24} color={loading ? "#ccc" : "#333"} />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.iconButton} onPress={clearNotifications}>
+          <Ionicons name="trash-outline" size={24} color="#333" />
+        </TouchableOpacity>
+      </View>
     </View>
   )
 
@@ -121,7 +131,13 @@ export default function AlertsScreen() {
       <StatusBar barStyle="dark-content" />
       {renderHeader()}
       {renderFilterTabs()}
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing || loading} onRefresh={onRefresh} />
+        }
+      >
         {renderAlertsByDate()}
       </ScrollView>
     </SafeAreaView>
@@ -143,6 +159,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#E0E0E0",
   },
+  headerRight: {
+    flexDirection: 'row',
+  },
+  iconButton: {
+    padding: 8,
+    marginLeft: 8,
+  },
   backButton: {
     padding: 8,
   },
@@ -150,9 +173,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     color: "#333",
-  },
-  filterButton: {
-    padding: 8,
   },
   filterContainer: {
     backgroundColor: "#FFFFFF",

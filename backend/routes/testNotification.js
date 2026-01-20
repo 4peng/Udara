@@ -2,8 +2,18 @@ const express = require('express');
 const router = express.Router();
 const { Expo } = require('expo-server-sdk');
 const User = require('../model/User');
+const { resetCooldowns } = require('../jobs/realtimeMonitor');
 
 const expo = new Expo();
+
+router.post('/reset-cooldowns', (req, res) => {
+  try {
+    const result = resetCooldowns();
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 router.post('/send', async (req, res) => {
   const { userId, title, body } = req.body;

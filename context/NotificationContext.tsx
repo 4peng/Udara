@@ -24,6 +24,8 @@ interface NotificationContextType {
   notifications: UINotification[];
   expoPushToken: string | undefined;
   clearNotifications: () => Promise<void>;
+  fetchNotifications: () => Promise<void>;
+  loading: boolean;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -32,11 +34,19 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const { expoPushToken, notification } = usePushNotifications();
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<UINotification[]>([]);
+  const [loading, setLoading] = useState(false);
 
   // Load notifications from storage on mount
   useEffect(() => {
     loadNotifications();
   }, []);
+
+  // Fetch from backend when user is available
+  useEffect(() => {
+    if (user?.uid) {
+      fetchNotifications();
+    }
+  }, [user]);
 
   const loadNotifications = async () => {
     try {
@@ -54,6 +64,48 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       await AsyncStorage.setItem('notifications', JSON.stringify(newNotifications));
     } catch (error) {
       console.error('Failed to save notifications', error);
+    }
+  };
+
+  const fetchNotifications = async () => {
+    if (!user?.uid) return;
+    
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/notifications/${user.uid}/notifications?limit=50`);
+      const data = await response.json();
+      
+      if (data.success && Array.isArray(data.notifications)) {
+        // Transform backend notifications to UI format
+        const fetchedNotifications: UINotification[] = data.notifications.map((n: any) => {
+           const severity = n.trigger?.severity || 'unknown';
+           const metric = n.trigger?.metric || 'AQI';
+           const value = n.trigger?.value || 0;
+           const date = new Date(n.createdAt || n.sentAt);
+           const aqi = n.trigger?.metric === 'aqi' ? n.trigger.value : 0; // Or estimate AQI if needed
+
+           return {
+             id: n.notificationId || n._id,
+             time: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+             location: n.content?.subject || "Alert", // Use title as location/subject
+             aqi: aqi,
+             level: severity.charAt(0).toUpperCase() + severity.slice(1),
+             message: n.content?.message || "No details",
+             date: "Today", // Will be recalculated by UI helper
+             rawDate: date.toISOString(),
+             color: severity === 'critical' ? '#F44336' : (severity === 'warning' ? '#FF9800' : '#4CAF50'),
+             icon: severity === 'critical' ? 'warning' : 'notifications',
+             timestamp: date.getTime()
+           };
+        });
+        
+        setNotifications(fetchedNotifications);
+        saveNotifications(fetchedNotifications);
+      }
+    } catch (error) {
+      console.error('Failed to fetch notifications from backend', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -105,10 +157,13 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         saveNotifications(updated);
         return updated;
     });
+    
+    // Also fetch fresh list to sync "unread" status if needed
+    fetchNotifications();
   };
 
   return (
-    <NotificationContext.Provider value={{ notifications, expoPushToken, clearNotifications }}>
+    <NotificationContext.Provider value={{ notifications, expoPushToken, clearNotifications, fetchNotifications, loading }}>
       {children}
     </NotificationContext.Provider>
   );

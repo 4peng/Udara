@@ -65,15 +65,14 @@ export default function LeafletMap({ sensors, onSensorPress, style }: LeafletMap
 
           // Helper for AQI Color
           function getAQIColor(aqi) {
-            if (aqi <= 50) return "#4CAF50"; // Good (Green)
-            if (aqi <= 100) return "#FFC107"; // Moderate (Yellow)
-            if (aqi <= 150) return "#FF9800"; // Unhealthy for Sensitive (Orange)
-            if (aqi <= 200) return "#F44336"; // Unhealthy (Red)
-            if (aqi <= 300) return "#9C27B0"; // Very Unhealthy (Purple)
-            return "#795548"; // Hazardous (Brown)
+            if (aqi <= 50) return "#4CAF50"; 
+            if (aqi <= 100) return "#FFC107";
+            if (aqi <= 200) return "#FF9800";
+            if (aqi <= 300) return "#F44336";
+            return "#9C27B0";
           }
 
-          // Global update function
+          // Global update function for Markers
           window.updateMapMarkers = function(sensorsData) {
             // Clear existing markers
             currentMarkers.forEach(function(marker) {
@@ -83,8 +82,6 @@ export default function LeafletMap({ sensors, onSensorPress, style }: LeafletMap
 
             // Add new markers
             if (Array.isArray(sensorsData)) {
-              var bounds = [];
-              
               sensorsData.forEach(function(sensor) {
                 if (sensor.coordinates && sensor.coordinates.latitude && sensor.coordinates.longitude) {
                   var color = getAQIColor(sensor.aqi);
@@ -104,16 +101,8 @@ export default function LeafletMap({ sensors, onSensorPress, style }: LeafletMap
                   });
                   
                   currentMarkers.push(marker);
-                  bounds.push([sensor.coordinates.latitude, sensor.coordinates.longitude]);
                 }
               });
-
-              // Fit bounds if we have markers
-              if (bounds.length > 0) {
-                // var group = new L.featureGroup(currentMarkers);
-                // map.fitBounds(group.getBounds().pad(0.1));
-                // Optional: Auto-fit bounds
-              }
             }
           };
 
