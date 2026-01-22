@@ -5,6 +5,7 @@ import { router, useLocalSearchParams, Stack } from "expo-router"
 import { useState, useEffect } from "react"
 import { Image, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native"
 import AsyncStorage from "@react-native-async-storage/async-storage"
+import { STORAGE_KEYS } from "../../constants/StorageKeys"
 
 // Mock article content with high-quality images
 const articleContent = {
@@ -161,7 +162,7 @@ export default function ArticleScreen() {
 
   const checkBookmarkStatus = async () => {
     try {
-      const bookmarks = await AsyncStorage.getItem('bookmarked_articles')
+      const bookmarks = await AsyncStorage.getItem(STORAGE_KEYS.BOOKMARKED_ARTICLES)
       if (bookmarks) {
         const parsed = JSON.parse(bookmarks)
         setIsBookmarked(parsed.includes(id))
@@ -173,7 +174,7 @@ export default function ArticleScreen() {
 
   const toggleBookmark = async () => {
     try {
-      const bookmarks = await AsyncStorage.getItem('bookmarked_articles')
+      const bookmarks = await AsyncStorage.getItem(STORAGE_KEYS.BOOKMARKED_ARTICLES)
       let parsed = bookmarks ? JSON.parse(bookmarks) : []
       
       if (isBookmarked) {
@@ -182,7 +183,7 @@ export default function ArticleScreen() {
         if (!parsed.includes(id)) parsed.push(id)
       }
       
-      await AsyncStorage.setItem('bookmarked_articles', JSON.stringify(parsed))
+      await AsyncStorage.setItem(STORAGE_KEYS.BOOKMARKED_ARTICLES, JSON.stringify(parsed))
       setIsBookmarked(!isBookmarked)
     } catch (e) {
       console.error("Failed to toggle bookmark", e)

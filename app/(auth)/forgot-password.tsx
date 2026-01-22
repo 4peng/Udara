@@ -3,6 +3,7 @@
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
 import { useState } from "react"
+import { ROUTES } from "../../constants/Routes"
 import {
   Alert,
   KeyboardAvoidingView,
@@ -101,7 +102,7 @@ export default function ForgotPasswordScreen() {
           <View style={styles.loginContainer}>
             <Text style={styles.loginText}>
               Remember your password?{" "}
-              <Text style={styles.loginLink} onPress={() => router.push("/(auth)/login")}>
+              <Text style={styles.loginLink} onPress={() => router.push(ROUTES.AUTH.LOGIN)}>
                 Login
               </Text>
             </Text>

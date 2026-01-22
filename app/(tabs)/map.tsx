@@ -2,7 +2,7 @@
 
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   ActivityIndicator,
   Modal,
@@ -17,15 +17,29 @@ import {
 import LeafletMap from "../../components/LeafletMap"
 import { useDevicesWithMonitoring } from "../../hooks/useDevicesWithMonitoring"
 import { getAQIColor, getAQIStatus, SIMPLE_AQI_CATEGORIES } from "../../utils/aqiUtils"
+import { useConnectivity } from "../../context/ConnectivityContext"
+import { ROUTES } from "../../constants/Routes"
 
 export default function MapScreen() {
   const [modalVisible, setModalVisible] = useState(false)
   const [selectedSensor, setSelectedSensor] = useState(null)
-  const [filters, setFilters] = useState({
-    healthy: true,
+  const [filters, setFilters] = useState<{[key: string]: boolean}>({
+    good: true,
     moderate: true,
+    unhealthy: true,
+    very_unhealthy: true,
     hazardous: true,
   })
+  
+  // Force map refresh on connection restore
+  const { isConnected } = useConnectivity()
+  const [mapKey, setMapKey] = useState(0)
+  
+  useEffect(() => {
+    if (isConnected) {
+       setMapKey(prev => prev + 1)
+    }
+  }, [isConnected])
 
   const { devices, loading, error, refreshDevices } = useDevicesWithMonitoring()
 
@@ -33,10 +47,18 @@ export default function MapScreen() {
     if (!Array.isArray(devices)) return []
 
     return devices.filter((sensor) => {
-      const status = getAQIStatus(sensor.aqi).toLowerCase()
-      if (status === "healthy") return filters.healthy
-      if (status === "moderate") return filters.moderate
-      return filters.hazardous // Hazardous
+      // Find which category this sensor belongs to based on AQI
+      const category = SIMPLE_AQI_CATEGORIES.find(c => 
+        sensor.aqi >= c.minValue && sensor.aqi <= c.maxValue
+      )
+      
+      // If we found a category, check if it's enabled in filters
+      if (category) {
+        return filters[category.filter]
+      }
+      
+      // Fallback for unexpected values (treat as enabled or default to last category)
+      return true
     })
   }
 
@@ -47,7 +69,7 @@ export default function MapScreen() {
   const handleSensorDetailPress = () => {
     if (selectedSensor && selectedSensor.deviceId) {
       setSelectedSensor(null)
-      router.push(`/sensor/${selectedSensor.deviceId}`)
+      router.push(ROUTES.SENSOR.DETAIL(selectedSensor.deviceId))
     }
   }
 
@@ -70,6 +92,7 @@ export default function MapScreen() {
     return (
       <View style={styles.mapContainer}>
         <LeafletMap
+          key={mapKey}
           sensors={filteredSensors}
           onSensorPress={handleSensorPress}
           style={styles.map}
@@ -126,7 +149,7 @@ export default function MapScreen() {
               <TouchableOpacity
                 key={index}
                 style={styles.filterItem}
-                onPress={() => setFilters({ ...filters, [category.filter]: !filters[category.filter] })}
+                onPress={() => setFilters(prev => ({ ...prev, [category.filter]: !prev[category.filter] }))}
               >
                 <View style={styles.filterLeft}>
                   <View style={[styles.filterDot, { backgroundColor: category.color }]} />

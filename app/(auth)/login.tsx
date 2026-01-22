@@ -19,9 +19,8 @@ import {
   View,
 } from "react-native"
 import { useAuth } from "../../hooks/useAuth"
-
-const REMEMBER_ME_KEY = "@remember_me"
-const SAVED_EMAIL_KEY = "@saved_email"
+import { STORAGE_KEYS } from "../../constants/StorageKeys"
+import { ROUTES } from "../../constants/Routes"
 
 export default function LoginScreen() {
   const [activeTab, setActiveTab] = useState("signin")
@@ -65,7 +64,7 @@ export default function LoginScreen() {
     try {
       const result = await signInWithGoogle(idToken);
       if (result.success) {
-        router.replace("/(tabs)");
+        router.replace(ROUTES.TABS.ROOT);
       } else {
         Alert.alert("Google Sign In Failed", result.error);
       }
@@ -84,8 +83,8 @@ export default function LoginScreen() {
 
   const loadSavedCredentials = async () => {
     try {
-      const savedRememberMe = await AsyncStorage.getItem(REMEMBER_ME_KEY)
-      const savedEmail = await AsyncStorage.getItem(SAVED_EMAIL_KEY)
+      const savedRememberMe = await AsyncStorage.getItem(STORAGE_KEYS.AUTH.REMEMBER_ME)
+      const savedEmail = await AsyncStorage.getItem(STORAGE_KEYS.AUTH.SAVED_EMAIL)
 
       if (savedRememberMe === "true" && savedEmail) {
         setRememberMe(true)
@@ -99,11 +98,11 @@ export default function LoginScreen() {
   const saveCredentials = async () => {
     try {
       if (rememberMe) {
-        await AsyncStorage.setItem(REMEMBER_ME_KEY, "true")
-        await AsyncStorage.setItem(SAVED_EMAIL_KEY, email)
+        await AsyncStorage.setItem(STORAGE_KEYS.AUTH.REMEMBER_ME, "true")
+        await AsyncStorage.setItem(STORAGE_KEYS.AUTH.SAVED_EMAIL, email)
       } else {
-        await AsyncStorage.removeItem(REMEMBER_ME_KEY)
-        await AsyncStorage.removeItem(SAVED_EMAIL_KEY)
+        await AsyncStorage.removeItem(STORAGE_KEYS.AUTH.REMEMBER_ME)
+        await AsyncStorage.removeItem(STORAGE_KEYS.AUTH.SAVED_EMAIL)
       }
     } catch (error) {
       console.log("Error saving credentials:", error)
@@ -124,7 +123,7 @@ export default function LoginScreen() {
       if (result.success) {
         // Save credentials if remember me is checked
         await saveCredentials()
-        router.replace("/(tabs)")
+        router.replace(ROUTES.TABS.ROOT)
       } else {
         Alert.alert("Sign In Failed", result.error)
       }
@@ -168,7 +167,7 @@ export default function LoginScreen() {
             {activeTab === "signin" && <View style={styles.activeTabIndicator} />}
           </TouchableOpacity>
 
-          <Link href="/(auth)/signup" asChild>
+          <Link href={ROUTES.AUTH.SIGNUP} asChild>
             <TouchableOpacity style={styles.tabButton}>
               <Text style={styles.tabText}>Sign Up</Text>
             </TouchableOpacity>
@@ -210,7 +209,7 @@ export default function LoginScreen() {
               <Text style={styles.rememberMeText}>Remember me</Text>
             </TouchableOpacity>
 
-            <Link href="/(auth)/forgot-password" asChild>
+            <Link href={ROUTES.AUTH.FORGOT_PASSWORD} asChild>
               <TouchableOpacity style={styles.forgotPassword}>
                 <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
               </TouchableOpacity>

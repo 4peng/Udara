@@ -93,11 +93,37 @@ router.get('/:deviceId/latest', async (req, res) => {
   try {
     const { deviceId } = req.params;
     
-    // 1. Get raw sensor data from DB
+    // 1. Try to get raw sensor data from DB
     const latestReading = await SensorReading.getLatestByDevice(deviceId);
     
     if (!latestReading) {
-      return res.status(404).json({ message: 'No data found' });
+      // Fallback: Check if device exists at all
+      const device = await Device.findOne({ deviceId });
+      
+      if (!device) {
+        return res.status(404).json({ message: 'Device not found' });
+      }
+      
+      // Return empty/default structure if device exists but no data
+      return res.json({
+        device: { 
+            deviceId: device.deviceId,
+            name: device.name,
+            location: device.location,
+            status: device.status,
+            ...device.toObject()
+        },
+        reading: {
+            deviceId: device.deviceId,
+            timestamp: new Date().toISOString(),
+            location: device.location,
+            environmental: { temperature: 0, humidity: 0, pressure: 0 },
+            airQuality: { pm1_0: 0, pm2_5: 0, pm10: 0 },
+            particles: { particles_0_3um: 0, particles_2_5um: 0 }
+        },
+        aqi: { value: 0, status: 'Unknown', predominant: 'None' },
+        gasData: {} 
+      });
     }
     
     // 2. Convert Voltages -> Gas Concentration (PPM/PPB)
@@ -112,10 +138,19 @@ router.get('/:deviceId/latest', async (req, res) => {
 
     // 4. Calculate Official Malaysian API
     const apiResult = calculateMalaysianAPI(apiInput);
+    
+    // 5. Fetch device details to include name
+    const device = await Device.findOne({ deviceId });
 
-    // 5. Send Response
+    // 6. Send Response
     res.json({
-      device: { deviceId },
+      device: device ? { 
+          deviceId: device.deviceId,
+          name: device.name,
+          location: device.location,
+          status: device.status,
+          ...device.toObject()
+      } : { deviceId },
       reading: latestReading.toFrontendFormat(),
       
       aqi: {

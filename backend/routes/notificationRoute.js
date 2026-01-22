@@ -410,7 +410,9 @@ router.get('/subscriptions/:userId', async (req, res) => {
   const { userId } = req.params;
 
   try {
-    const user = await User.findOne({ userId: userId });
+    const user = await User.findOne({ 
+        $or: [{ userId: userId }, { clerkUserId: userId }] 
+    });
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     // Return only active subscriptions

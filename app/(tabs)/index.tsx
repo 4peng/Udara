@@ -21,33 +21,26 @@ import LeafletMap from "../../components/LeafletMap"
 import { useDevicesWithMonitoring } from "../../hooks/useDevicesWithMonitoring"
 import { getAQIColor, getAQIStatus, SIMPLE_AQI_CATEGORIES } from "../../utils/aqiUtils"
 import { getComfortLevel, getComfortLevelColor } from "../../utils/environmentalUtils"
-
-const { width } = Dimensions.get("window")
+import { ROUTES } from "../../constants/Routes"
+import { TIME } from "../../constants/Time"
+import { LAYOUT } from "../../constants/Layout"
 
 // Enable debug mode for development
 const DEBUG_MODE = __DEV__
-
-// Auto-refresh interval: 5 minutes (300,000 milliseconds)
-const AUTO_REFRESH_INTERVAL = 5 * 60 * 1000
 
 export default function HomeScreen() {
   const [currentDate, setCurrentDate] = useState("")
   const [showDebugInfo, setShowDebugInfo] = useState(false)
   const [lastRefreshTime, setLastRefreshTime] = useState<Date>(new Date())
-  const [timeUntilNextRefresh, setTimeUntilNextRefresh] = useState<number>(AUTO_REFRESH_INTERVAL)
+  const [timeUntilNextRefresh, setTimeUntilNextRefresh] = useState<number>(TIME.AUTO_REFRESH_INTERVAL)
   const [isAutoRefreshing, setIsAutoRefreshing] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true)
-    await forceCompleteReset()
-    setRefreshing(false)
-  }, [forceCompleteReset])
 
   // Use refs to manage intervals and avoid memory leaks
   const autoRefreshInterval = useRef<NodeJS.Timeout | null>(null)
   const countdownInterval = useRef<NodeJS.Timeout | null>(null)
   const isComponentMounted = useRef(true)
+  const isFirstLoad = useRef(true)
 
   const {
     devices,
@@ -62,6 +55,12 @@ export default function HomeScreen() {
     forceCompleteReset
   } = useDevicesWithMonitoring()
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true)
+    await forceCompleteReset()
+    setRefreshing(false)
+  }, [forceCompleteReset])
+
   // SIMPLE REFRESH when returning from Settings
   useFocusEffect(
     useCallback(() => {
@@ -69,9 +68,14 @@ export default function HomeScreen() {
       // Small delay to ensure any navigation state changes are complete
       const timeoutId = setTimeout(() => {
         if (isComponentMounted.current) {
+          // Skip the first load refresh to avoid double-fetching with useDevices mount effect
+          if (isFirstLoad.current) {
+            isFirstLoad.current = false
+            return
+          }
           forceCompleteReset()
         }
-      }, 100)
+      }, TIME.NAVIGATION_DELAY)
 
       return () => clearTimeout(timeoutId)
     }, [forceCompleteReset])
@@ -92,7 +96,7 @@ export default function HomeScreen() {
 
     updateDate()
     // Update date every minute
-    const dateInterval = setInterval(updateDate, 60000)
+    const dateInterval = setInterval(updateDate, TIME.DATE_UPDATE_INTERVAL)
 
     return () => clearInterval(dateInterval)
   }, [])
@@ -110,7 +114,7 @@ export default function HomeScreen() {
       }
 
       // Reset countdown
-      setTimeUntilNextRefresh(AUTO_REFRESH_INTERVAL)
+      setTimeUntilNextRefresh(TIME.AUTO_REFRESH_INTERVAL)
 
       // Set up auto-refresh interval (every 5 minutes)
       autoRefreshInterval.current = setInterval(() => {
@@ -119,25 +123,25 @@ export default function HomeScreen() {
         setIsAutoRefreshing(true)
         forceCompleteReset()
         setLastRefreshTime(new Date())
-        setTimeUntilNextRefresh(AUTO_REFRESH_INTERVAL)
+        setTimeUntilNextRefresh(TIME.AUTO_REFRESH_INTERVAL)
         
         // Reset auto-refresh flag after 2 seconds
         setTimeout(() => {
           if (isComponentMounted.current) {
             setIsAutoRefreshing(false)
           }
-        }, 2000)
-      }, AUTO_REFRESH_INTERVAL)
+        }, TIME.AUTO_REFRESH_RESET_DELAY)
+      }, TIME.AUTO_REFRESH_INTERVAL)
 
       // Set up countdown timer (updates every 30 seconds to avoid excessive updates)
       countdownInterval.current = setInterval(() => {
         if (!isComponentMounted.current) return
         
         setTimeUntilNextRefresh((prev) => {
-          const newTime = Math.max(0, prev - 30000) // Decrease by 30 seconds
-          return newTime <= 0 ? AUTO_REFRESH_INTERVAL : newTime
+          const newTime = Math.max(0, prev - TIME.COUNTDOWN_INTERVAL) // Decrease by 30 seconds
+          return newTime <= 0 ? TIME.AUTO_REFRESH_INTERVAL : newTime
         })
-      }, 30000) // Update every 30 seconds instead of every second
+      }, TIME.COUNTDOWN_INTERVAL) // Update every 30 seconds instead of every second
     }
 
     // Start auto-refresh when component mounts
@@ -208,12 +212,12 @@ export default function HomeScreen() {
   }
 
   const handleMapPress = () => {
-    router.push("/(tabs)/map")
+    router.push(ROUTES.TABS.MAP)
   }
 
   const handleSensorPress = (sensor: any) => {
-    if (sensor && sensor.id) {
-      router.push(`/sensor/${sensor.id}`)
+    if (sensor && sensor.deviceId) {
+      router.push(ROUTES.SENSOR.DETAIL(sensor.deviceId))
     } else {
       console.warn("⚠️ HomeScreen: Invalid sensor pressed:", sensor)
     }
@@ -226,7 +230,7 @@ export default function HomeScreen() {
       // Use refreshDevices and update timing
       forceCompleteReset()
       setLastRefreshTime(new Date())
-      setTimeUntilNextRefresh(AUTO_REFRESH_INTERVAL)
+      setTimeUntilNextRefresh(TIME.AUTO_REFRESH_INTERVAL)
       
       // Reset the auto-refresh timer to start fresh 5-minute cycle
       if (autoRefreshInterval.current) {
@@ -237,13 +241,13 @@ export default function HomeScreen() {
           setIsAutoRefreshing(true)
           forceCompleteReset()
           setLastRefreshTime(new Date())
-          setTimeUntilNextRefresh(AUTO_REFRESH_INTERVAL)
+          setTimeUntilNextRefresh(TIME.AUTO_REFRESH_INTERVAL)
           setTimeout(() => {
             if (isComponentMounted.current) {
               setIsAutoRefreshing(false)
             }
-          }, 2000)
-        }, AUTO_REFRESH_INTERVAL)
+          }, TIME.AUTO_REFRESH_RESET_DELAY)
+        }, TIME.AUTO_REFRESH_INTERVAL)
       }
 
       // Reset countdown timer
@@ -253,10 +257,10 @@ export default function HomeScreen() {
           if (!isComponentMounted.current) return
           
           setTimeUntilNextRefresh((prev) => {
-            const newTime = Math.max(0, prev - 30000)
-            return newTime <= 0 ? AUTO_REFRESH_INTERVAL : newTime
+            const newTime = Math.max(0, prev - TIME.COUNTDOWN_INTERVAL)
+            return newTime <= 0 ? TIME.AUTO_REFRESH_INTERVAL : newTime
           })
-        }, 30000)
+        }, TIME.COUNTDOWN_INTERVAL)
       }
       
     } catch (error) {
@@ -418,7 +422,7 @@ export default function HomeScreen() {
             <Ionicons name="location-outline" size={48} color="#ccc" />
             <Text style={styles.emptyStateText}>No areas being monitored</Text>
             <Text style={styles.emptyStateSubtext}>Go to Settings to select areas to monitor</Text>
-            <TouchableOpacity style={styles.settingsButton} onPress={() => router.push("/(tabs)/settings")}>
+            <TouchableOpacity style={styles.settingsButton} onPress={() => router.push(ROUTES.TABS.SETTINGS)}>
               <Text style={styles.settingsButtonText}>Open Settings</Text>
             </TouchableOpacity>
           </View>
@@ -440,7 +444,7 @@ export default function HomeScreen() {
               onPress={() => {
                 // Navigate to the first device in this location
                 if (devices.length > 0) {
-                  router.push(`/sensor/${devices[0].id}`)
+                  router.push(ROUTES.SENSOR.DETAIL(devices[0].deviceId))
                 }
               }}
             >

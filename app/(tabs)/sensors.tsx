@@ -5,9 +5,10 @@ import { router } from "expo-router"
 import { useState } from "react"
 import { SafeAreaView, FlatList, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"
 import { useDevicesWithMonitoring } from "../../hooks/useDevicesWithMonitoring"
-import { getAQIColor, getAQIStatus } from "../../utils/aqiUtils"
+import { getAQIColor, getAQIStatus, SIMPLE_AQI_CATEGORIES } from "../../utils/aqiUtils"
+import { ROUTES } from "../../constants/Routes"
 
-const categories = ["All", "Monitored", "Healthy", "Moderate", "Hazardous"]
+const categories = ["All", "Monitored", "Good", "Moderate", "Unhealthy", "Very Unhealthy", "Hazardous"]
 
 export default function SensorsScreen() {
   const [searchQuery, setSearchQuery] = useState("")
@@ -52,7 +53,16 @@ export default function SensorsScreen() {
         // Filter to show only monitored devices
         filtered = filtered.filter((sensor) => isDeviceCurrentlyMonitored(sensor.deviceId, sensor.location))
       } else {
-        filtered = filtered.filter((sensor) => getAQIStatus(sensor.aqi) === selectedCategory)
+        // Find the category definition
+        const categoryDef = SIMPLE_AQI_CATEGORIES.find(c => c.name === selectedCategory)
+        if (categoryDef) {
+          filtered = filtered.filter((sensor) => 
+            sensor.aqi >= categoryDef.minValue && sensor.aqi <= categoryDef.maxValue
+          )
+        } else {
+          // Fallback to string match (shouldn't happen with correct categories)
+          filtered = filtered.filter((sensor) => getAQIStatus(sensor.aqi) === selectedCategory)
+        }
       }
     }
 
@@ -119,7 +129,7 @@ export default function SensorsScreen() {
     const isMonitored = isDeviceCurrentlyMonitored(sensor.deviceId, sensor.location)
     
     return (
-      <TouchableOpacity style={styles.sensorCard} onPress={() => router.push(`/sensor/${sensor.deviceId}`)}>
+      <TouchableOpacity style={styles.sensorCard} onPress={() => router.push(ROUTES.SENSOR.DETAIL(sensor.deviceId))}>
         <View style={styles.sensorCardContent}>
           <View style={styles.sensorInfo}>
             <View style={[styles.sensorDot, { backgroundColor: getAQIColor(sensor.aqi) }]} />
@@ -180,7 +190,7 @@ export default function SensorsScreen() {
         {selectedCategory === "Monitored" && (
           <TouchableOpacity 
             style={styles.settingsButton} 
-            onPress={() => router.push("/(tabs)/settings")}
+            onPress={() => router.push(ROUTES.TABS.SETTINGS)}
           >
             <Text style={styles.settingsButtonText}>Open Settings</Text>
           </TouchableOpacity>

@@ -298,6 +298,36 @@ router.patch("/:id/status", async (req, res) => {
   }
 });
 
+// Ping a device to check connectivity (UC-14)
+router.get("/:deviceId/ping", async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    const device = await Device.findOne({ deviceId });
+
+    if (!device) {
+      return res.status(404).json({ error: "Device not found" });
+    }
+
+    // A device is considered "Responsive" if it has updated in the last 15 minutes
+    const lastUpdate = new Date(device.lastUpdate);
+    const now = new Date();
+    const diffMinutes = (now - lastUpdate) / (1000 * 60);
+    const isOnline = diffMinutes < 15;
+
+    res.json({
+      success: true,
+      deviceId,
+      status: isOnline ? "online" : "offline",
+      lastSeen: device.lastUpdate,
+      latency: isOnline ? Math.round(diffMinutes * 60) + " seconds ago" : "Long time ago",
+      message: isOnline ? "Device is responding" : "Device is currently unreachable"
+    });
+  } catch (error) {
+    console.error("Ping error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Find devices nearby a location
 router.get("/nearby/:longitude/:latitude", async (req, res) => {
   try {

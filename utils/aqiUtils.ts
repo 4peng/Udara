@@ -5,6 +5,7 @@ export interface AQICategory {
   description: string
   minValue: number
   maxValue: number
+  filter: string
 }
 
 // Official Malaysian API Categories (5 Levels)
@@ -16,6 +17,7 @@ export const AQI_CATEGORIES: AQICategory[] = [
     description: "Air quality is good. Pollution poses little or no risk.",
     minValue: 0,
     maxValue: 50,
+    filter: "good",
   },
   {
     name: "Moderate",
@@ -24,6 +26,7 @@ export const AQI_CATEGORIES: AQICategory[] = [
     description: "Air quality is acceptable. Moderate health concern for a very small number of people.",
     minValue: 51,
     maxValue: 100,
+    filter: "moderate",
   },
   {
     name: "Unhealthy",
@@ -32,6 +35,7 @@ export const AQI_CATEGORIES: AQICategory[] = [
     description: "Everyone may begin to experience health effects; members of sensitive groups may experience more serious health effects.",
     minValue: 101,
     maxValue: 200,
+    filter: "unhealthy",
   },
   {
     name: "Very Unhealthy",
@@ -40,6 +44,7 @@ export const AQI_CATEGORIES: AQICategory[] = [
     description: "Health warnings of emergency conditions. The entire population is more likely to be affected.",
     minValue: 201,
     maxValue: 300,
+    filter: "very_unhealthy",
   },
   {
     name: "Hazardous",
@@ -48,6 +53,7 @@ export const AQI_CATEGORIES: AQICategory[] = [
     description: "Health alert: everyone may experience more serious health effects.",
     minValue: 301,
     maxValue: 500,
+    filter: "hazardous",
   },
 ]
 
