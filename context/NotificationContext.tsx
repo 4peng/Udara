@@ -5,6 +5,7 @@ import { getAQIStatus, getAQIColor } from '../utils/aqiUtils';
 import * as Notifications from 'expo-notifications';
 import { useAuth } from '../hooks/useAuth';
 import { API_CONFIG, apiRequest, buildApiUrl } from '../config/api';
+import { STORAGE_KEYS } from '../constants/StorageKeys';
 
 export interface UINotification {
   id: string;
@@ -51,7 +52,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   const loadNotifications = async () => {
     try {
-      const stored = await AsyncStorage.getItem('notifications');
+      const stored = await AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATIONS);
       if (stored) {
         setNotifications(JSON.parse(stored));
       }
@@ -62,7 +63,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   const saveNotifications = async (newNotifications: UINotification[]) => {
     try {
-      await AsyncStorage.setItem('notifications', JSON.stringify(newNotifications));
+      await AsyncStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(newNotifications));
     } catch (error) {
       console.error('Failed to save notifications', error);
     }
@@ -95,7 +96,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
              date = new Date();
            }
 
-           const aqi = n.trigger?.metric === 'aqi' ? n.trigger.value : (n.value || 0);
+           // Robust AQI extraction: Use trigger value regardless of metric, as it represents the severity source
+           const aqi = n.trigger?.value || n.value || 0;
            const deviceId = n.trigger?.deviceId || n.deviceId;
 
            return {
@@ -103,11 +105,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
              time: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
              location: n.content?.subject || n.message || "Alert", 
              aqi: aqi,
-             level: severity.charAt(0).toUpperCase() + severity.slice(1),
+             level: getAQIStatus(aqi),
              message: n.content?.message || n.message || "No details",
              date: "Today", 
              rawDate: date.toISOString(),
-             color: severity === 'critical' ? '#F44336' : (severity === 'warning' ? '#FF9800' : '#4CAF50'),
+             color: getAQIColor(aqi),
              icon: severity === 'critical' ? 'warning' : 'notifications',
              timestamp: date.getTime(),
              deviceId: deviceId
@@ -134,7 +136,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         
         // Optimistic UI update
         setNotifications([]);
-        await AsyncStorage.removeItem('notifications');
+        await AsyncStorage.removeItem(STORAGE_KEYS.NOTIFICATIONS);
 
         // Call Backend
         const response = await fetch(`${API_CONFIG.BASE_URL}/api/notifications/${user.uid}/notifications`, {
@@ -169,7 +171,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     // Use data.date if available (timestamp from server?), else use now
     const notifDate = notif.date ? new Date(notif.date) : now;
     
-    const aqi = data.aqi || 0;
+    // Robust AQI extraction for push notifications
+    const aqi = data.aqi || data.value || 0;
     const deviceId = data.deviceId;
     
     const newNotif: UINotification = {
@@ -188,8 +191,20 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     };
 
     setNotifications(prev => {
-        // Prevent duplicates
+        // 1. Strict Deduplication: Check ID
         if (prev.find(n => n.id === newNotif.id)) return prev;
+
+        // 2. Fuzzy Deduplication: Check content similarity within time window
+        const recentDuplicate = prev.find(n => 
+            n.deviceId === newNotif.deviceId && 
+            n.level === newNotif.level &&
+            Math.abs(n.timestamp - newNotif.timestamp) < 60 * 1000 // 1 minute window
+        );
+
+        if (recentDuplicate) {
+            console.log("🚫 Ignoring duplicate notification:", newNotif.id);
+            return prev;
+        }
         
         const updated = [newNotif, ...prev];
         saveNotifications(updated);

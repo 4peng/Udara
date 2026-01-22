@@ -4,6 +4,7 @@ import { router } from "expo-router"
 import { useEffect } from "react"
 import { ActivityIndicator, StyleSheet, View } from "react-native"
 import { useAuth } from "../hooks/useAuth"
+import { ROUTES } from "../constants/Routes"
 
 export default function Index() {
   const { user, loading } = useAuth()
@@ -11,9 +12,9 @@ export default function Index() {
   useEffect(() => {
     if (!loading) {
       if (user) {
-        router.replace("/(tabs)")
+        router.replace(ROUTES.TABS.ROOT)
       } else {
-        router.replace("/(auth)/login")
+        router.replace(ROUTES.AUTH.LOGIN)
       }
     }
   }, [user, loading])

@@ -6,7 +6,6 @@ import { router, useLocalSearchParams } from "expo-router"
 import { useEffect, useState } from "react"
 import {
   ActivityIndicator,
-  Dimensions,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -18,67 +17,32 @@ import {
 import { LineChart } from "react-native-chart-kit"
 import { useDeviceDetail } from "../../hooks/useDeviceDetail"
 import { useAuth } from "../../hooks/useAuth"
-import { usePushNotifications } from "../../hooks/usePushNotifications"
-import { API_CONFIG, apiRequest } from "../../config/api"
+import { useDevicesWithMonitoring } from "../../hooks/useDevicesWithMonitoring"
 import { getAQIColor, getAQIStatus } from "../../utils/aqiUtils"
 import { getComfortLevel, getComfortLevelColor, calculateHeatIndex } from "../../utils/environmentalUtils"
-
-const { width } = Dimensions.get("window")
+import { LAYOUT } from "../../constants/Layout"
 
 export default function SensorDetailScreen() {
   const { id } = useLocalSearchParams()
   const [selectedPeriod, setSelectedPeriod] = useState("24h")
-  const [isSubscribed, setIsSubscribed] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
 
   const { user } = useAuth()
-  usePushNotifications() // Ensure token is registered
+  const { toggleAreaMonitoring, monitoringAreas } = useDevicesWithMonitoring()
 
   const { device, loading, error, refetch, fetchHistoricalData, chartData } = useDeviceDetail(id as string)
 
-  // Check subscription status
-  useEffect(() => {
-    if (user && id) {
-      const url = `${API_CONFIG.BASE_URL}/api/notifications/subscriptions/${user.uid}`;
-      apiRequest(url)
-        .then(async (res) => {
-           if (res.status === 404) return { success: true, subscriptions: [] }; // Handle 404 as no subscriptions
-           if (!res.ok) throw new Error(`Status ${res.status}`);
-           return res.json();
-        })
-        .then(data => {
-            if (data.success && data.subscriptions.some((sub: any) => sub.deviceId === id)) {
-                setIsSubscribed(true)
-            }
-        })
-        .catch(err => {
-            console.error("Error checking subscription:", err);
-        })
-    }
-  }, [user, id])
+  // Find the monitoring area that contains this device ID
+  // This is the most robust way to find the correct area key to toggle
+  const monitoringArea = monitoringAreas.find(area => area.devices.includes(id as string))
+  const isMonitored = monitoringArea?.enabled || false
 
-  const handleToggleSubscription = async () => {
-    if (!user) {
-        alert("Please log in to save locations and get alerts.")
-        return
-    }
-    
-    const endpoint = isSubscribed ? 'unsubscribe' : 'subscribe'
-    try {
-        const res = await fetch(`${API_CONFIG.BASE_URL}/api/notifications/${endpoint}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: user.uid, deviceId: id })
-        })
-        const data = await res.json()
-        if (data.success) {
-            setIsSubscribed(!isSubscribed)
-        } else {
-            alert("Failed to update subscription")
-        }
-    } catch (error) {
-        console.error("Error toggling subscription:", error)
-        alert("Error connecting to server")
+  const handleToggleMonitoring = async () => {
+    if (monitoringArea) {
+      await toggleAreaMonitoring(monitoringArea.location)
+    } else if (device && device.name) {
+      // Fallback: If for some reason the ID mapping failed, try the name (legacy behavior)
+      await toggleAreaMonitoring(device.name)
     }
   }
 
@@ -132,13 +96,23 @@ export default function SensorDetailScreen() {
           {device?.name || `Sensor ${id}`}
         </Text>
         <Text style={styles.headerSubtitle}>{device?.location}</Text>
+        {device?.tags && device.tags.length > 0 && (
+          <View style={styles.tagContainer}>
+            {device.tags.map((tag: string, index: number) => (
+              <View key={index} style={styles.tag}>
+                <Text style={styles.tagText}>{tag}</Text>
+              </View>
+            ))}
+          </View>
+        )}
       </View>
       <View style={styles.headerActions}>
-        <TouchableOpacity style={styles.headerButton} onPress={handleRefresh} disabled={refreshing}>
-          <Ionicons name="refresh-outline" size={24} color={refreshing ? "#ccc" : "#333"} />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.headerButton} onPress={handleToggleSubscription}>
-          <Ionicons name={isSubscribed ? "heart" : "heart-outline"} size={24} color={isSubscribed ? "#FF6B6B" : "#333"} />
+        <TouchableOpacity style={styles.headerButton} onPress={handleToggleMonitoring}>
+          <Ionicons 
+            name={isMonitored ? "eye" : "eye-outline"} 
+            size={24} 
+            color={isMonitored ? "#4361EE" : "#333"} 
+          />
         </TouchableOpacity>
       </View>
     </View>
@@ -324,7 +298,7 @@ export default function SensorDetailScreen() {
         )}
         <LineChart
           data={currentChartData}
-          width={width - 40}
+          width={LAYOUT.window.width - 40}
           height={200}
           chartConfig={{
             backgroundColor: "#ffffff",
@@ -367,12 +341,29 @@ export default function SensorDetailScreen() {
     )
   }
 
+  const renderDeviceHealth = () => (
+    <View style={styles.dataInfoSection}>
+      <View style={styles.sectionHeaderRow}>
+        <Text style={styles.sectionTitleSmall}>Device Health</Text>
+      </View>
+      <View style={styles.dataInfoItem}>
+        <Ionicons name="hardware-chip-outline" size={20} color="#666" />
+        <Text style={styles.dataInfoText}>Model: Atmosfera-v1 (ESP32)</Text>
+      </View>
+      <View style={styles.dataInfoItem}>
+        <Ionicons name="wifi-outline" size={20} color="#666" />
+        <Text style={styles.dataInfoText}>Status: {device.status || 'Active'}</Text>
+      </View>
+    </View>
+  )
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
       {renderHeader()}
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {renderAQIDisplay()}
+        {renderDeviceHealth()}
         {renderEnvironmentalDetails()}
         {renderTimePeriodSelector()}
         {renderChart()}
@@ -410,6 +401,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
     marginTop: 2,
+  },
+  tagContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 6,
+    justifyContent: "center",
+  },
+  tag: {
+    backgroundColor: "#F0F0F0",
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginHorizontal: 4,
+    marginBottom: 4,
+  },
+  tagText: {
+    fontSize: 10,
+    color: "#666",
+    fontWeight: "500",
   },
   headerActions: {
     flexDirection: "row",
@@ -661,6 +671,31 @@ const styles = StyleSheet.create({
     backgroundColor: "#F8F9FA",
     borderRadius: 12,
     padding: 16,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  sectionTitleSmall: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+  },
+  pingButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#EBF0FF",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  pingButtonText: {
+    fontSize: 12,
+    color: "#4361EE",
+    fontWeight: "600",
+    marginLeft: 4,
   },
   dataInfoItem: {
     flexDirection: "row",

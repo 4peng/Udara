@@ -1,8 +1,8 @@
 "use client"
 
 import { Ionicons } from "@expo/vector-icons"
-import { router } from "expo-router"
-import { useState } from "react"
+import { router, useFocusEffect } from "expo-router"
+import { useState, useCallback } from "react"
 import {
     Image,
     SafeAreaView,
@@ -14,8 +14,11 @@ import {
     TouchableOpacity,
     View,
 } from "react-native"
+import AsyncStorage from "@react-native-async-storage/async-storage"
+import { ROUTES } from "../../constants/Routes"
+import { STORAGE_KEYS } from "../../constants/StorageKeys"
 
-const categories = ["Basics", "Health", "Indoor Air", "Guides"]
+const categories = ["Basics", "Health", "Indoor Air", "Guides", "Bookmarks"]
 
 const featuredArticle = {
   id: 1,
@@ -87,6 +90,24 @@ const articles = [
 export default function LearnScreen() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("")
+  const [bookmarkedIds, setBookmarkedIds] = useState<string[]>([])
+
+  useFocusEffect(
+    useCallback(() => {
+      loadBookmarks()
+    }, [])
+  )
+
+  const loadBookmarks = async () => {
+    try {
+      const bookmarks = await AsyncStorage.getItem(STORAGE_KEYS.BOOKMARKED_ARTICLES)
+      if (bookmarks) {
+        setBookmarkedIds(JSON.parse(bookmarks))
+      }
+    } catch (e) {
+      console.error("Failed to load bookmarks", e)
+    }
+  }
 
   const getFilteredArticles = () => {
     let filtered = articles
@@ -101,9 +122,13 @@ export default function LearnScreen() {
     }
 
     if (selectedCategory) {
-      filtered = filtered.filter(
-        (article) => article.category === selectedCategory || article.tags.includes(selectedCategory),
-      )
+      if (selectedCategory === "Bookmarks") {
+         filtered = filtered.filter(article => bookmarkedIds.includes(article.id.toString()))
+      } else {
+        filtered = filtered.filter(
+          (article) => article.category === selectedCategory || article.tags.includes(selectedCategory),
+        )
+      }
     }
 
     return filtered
@@ -140,7 +165,7 @@ export default function LearnScreen() {
   )
 
   const renderFeaturedArticle = () => (
-    <TouchableOpacity style={styles.featuredCard} onPress={() => router.push(`/learn/${featuredArticle.id}`)}>
+    <TouchableOpacity style={styles.featuredCard} onPress={() => router.push(ROUTES.LEARN.DETAIL(featuredArticle.id.toString()))}>
       <Image source={{ uri: featuredArticle.image }} style={styles.featuredImage} />
       <View style={styles.featuredContent}>
         <Text style={styles.featuredTitle}>{featuredArticle.title}</Text>
@@ -190,7 +215,7 @@ export default function LearnScreen() {
           <TouchableOpacity
             key={article.id}
             style={[styles.articleCard, index % 2 === 0 ? styles.articleCardLeft : styles.articleCardRight]}
-            onPress={() => router.push(`/learn/${article.id}`)}
+            onPress={() => router.push(ROUTES.LEARN.DETAIL(article.id.toString()))}
           >
             <Image source={{ uri: article.image }} style={styles.articleImage} />
             <View style={styles.articleContent}>

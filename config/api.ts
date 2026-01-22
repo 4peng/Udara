@@ -24,7 +24,7 @@ export const API_CONFIG = {
   },
 
   // Request timeout in milliseconds
-  TIMEOUT: 15000,
+  TIMEOUT: 30000,
 }
 
 // Helper function to build full URL

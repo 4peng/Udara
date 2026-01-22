@@ -19,10 +19,12 @@ import {
 } from "react-native"
 import { useAuth } from "../../hooks/useAuth"
 import { useDevicesWithMonitoring } from "../../hooks/useDevicesWithMonitoring"
+import { ROUTES } from "../../constants/Routes"
+import { SIMPLE_AQI_CATEGORIES } from "../../utils/aqiUtils"
 
 export default function SettingsScreen() {
   const [pushNotifications, setPushNotifications] = useState(true)
-  const [alertThreshold, setAlertThreshold] = useState("Standard (AQI > 100)")
+  const [alertThreshold, setAlertThreshold] = useState(`${SIMPLE_AQI_CATEGORIES[2].name} (AQI > ${SIMPLE_AQI_CATEGORIES[2].minValue - 1})`)
 
   const { logout, user } = useAuth()
   const { 
@@ -45,7 +47,7 @@ export default function SettingsScreen() {
         onPress: async () => {
           const result = await logout()
           if (result.success) {
-            router.replace("/(auth)/login")
+            router.replace(ROUTES.AUTH.LOGIN)
           } else {
             Alert.alert("Error", "Failed to logout")
           }
@@ -55,13 +57,17 @@ export default function SettingsScreen() {
   }
 
   const handleAlertThresholds = () => {
+    // Generate options from AQI categories (skipping "Good" as it doesn't make sense for alerts)
+    const options = SIMPLE_AQI_CATEGORIES.slice(1).map(category => ({
+      text: `${category.name} (AQI > ${category.minValue - 1})`,
+      onPress: () => setAlertThreshold(`${category.name} (AQI > ${category.minValue - 1})`)
+    }))
+
     Alert.alert(
       "Alert Threshold",
       "Choose when you want to be notified:",
       [
-        { text: "Sensitive (AQI > 50)", onPress: () => setAlertThreshold("Sensitive (AQI > 50)") },
-        { text: "Standard (AQI > 100)", onPress: () => setAlertThreshold("Standard (AQI > 100)") },
-        { text: "Hazardous (AQI > 200)", onPress: () => setAlertThreshold("Hazardous (AQI > 200)") },
+        ...options,
         { text: "Cancel", style: "cancel" }
       ]
     )

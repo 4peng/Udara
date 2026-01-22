@@ -4,10 +4,11 @@ import { Ionicons } from "@expo/vector-icons"
 import { useState, useCallback } from "react"
 import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View, RefreshControl } from "react-native"
 import { router } from "expo-router"
-import { getAQIColor, getAQIStatus } from "../../utils/aqiUtils"
+import { getAQIColor, getAQIStatus, SIMPLE_AQI_CATEGORIES } from "../../utils/aqiUtils"
 import { useNotificationContext, UINotification } from "../../context/NotificationContext"
+import { ROUTES } from "../../constants/Routes"
 
-const alertTypes = ["All", "Unhealthy", "Moderate", "Healthy"]
+const alertTypes = ["All", ...SIMPLE_AQI_CATEGORIES.map(c => c.name)]
 
 export default function AlertsScreen() {
   const { notifications, clearNotifications, fetchNotifications, loading } = useNotificationContext()
@@ -54,7 +55,7 @@ export default function AlertsScreen() {
 
   const handleAlertPress = (alert: UINotification) => {
     if (alert.deviceId) {
-      router.push(`/sensor/${alert.deviceId}`)
+      router.push(ROUTES.SENSOR.DETAIL(alert.deviceId))
     }
   }
 

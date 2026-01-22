@@ -5,23 +5,23 @@ export const getComfortLevel = (temp: number | undefined | null, humidity: numbe
   if (temp === undefined || temp === null || humidity === undefined || humidity === null) return 'Unknown'
   
   if (temp >= 20 && temp <= 26 && humidity >= 40 && humidity <= 70) {
-    return 'Comfortable'
+    return 'Good'
   } else if (temp > 30 || humidity > 80) {
-    return 'Uncomfortable'
+    return 'Poor'
   } else if (temp < 18 || humidity < 30) {
-    return 'Too Dry/Cold'
+    return 'Dry/Cold'
   } else {
-    return 'Moderate'
+    return 'Fair'
   }
 }
 
 export const getComfortLevelColor = (temp: number | undefined | null, humidity: number | undefined | null): string => {
   const level = getComfortLevel(temp, humidity)
   switch (level) {
-    case 'Comfortable': return '#4CAF50'
-    case 'Moderate': return '#FFC107'
-    case 'Uncomfortable': return '#FF5722'
-    case 'Too Dry/Cold': return '#2196F3'
+    case 'Good': return '#4CAF50'
+    case 'Fair': return '#FFC107'
+    case 'Poor': return '#FF5722'
+    case 'Dry/Cold': return '#2196F3'
     default: return '#666'
   }
 }

@@ -4,8 +4,10 @@ import { Ionicons } from "@expo/vector-icons"
 import { Link, router } from "expo-router"
 import { useEffect, useState } from "react"
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { ROUTES } from "../../constants/Routes"
 import {
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -58,7 +60,7 @@ export default function SignUpScreen() {
     try {
       const result = await signInWithGoogle(idToken);
       if (result.success) {
-        router.replace("/(tabs)");
+        router.replace(ROUTES.TABS.ROOT);
       } else {
         Alert.alert("Google Sign In Failed", result.error);
       }
@@ -86,7 +88,7 @@ export default function SignUpScreen() {
     setLoading(false)
 
     if (result.success) {
-      router.replace("/(tabs)")
+      router.replace(ROUTES.TABS.ROOT)
     } else {
       Alert.alert("Sign Up Failed", result.error)
     }
@@ -102,13 +104,17 @@ export default function SignUpScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboardAvoidView}>
         <View style={styles.logoContainer}>
           <View style={styles.logoBox}>
-            <Ionicons name="leaf-outline" size={30} color="#FFFFFF" />
+            <Image 
+              source={require('../../assets/logo.png')} 
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
           <Text style={styles.appName}>Udara</Text>
         </View>
 
         <View style={styles.tabContainer}>
-          <Link href="/(auth)/login" asChild>
+          <Link href={ROUTES.AUTH.LOGIN} asChild>
             <TouchableOpacity style={styles.tabButton}>
               <Text style={styles.tabText}>Sign In</Text>
             </TouchableOpacity>
@@ -210,6 +216,12 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     marginTop: 10,
+  },
+  logoImage: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    borderRadius: 12
   },
   tabContainer: {
     flexDirection: "row",

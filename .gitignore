@@ -53,3 +53,8 @@ google-services.json
 !tsconfig.json
 !eas.json
 
+context_report.pdf
+TEST_CASES_INTEGRATION.md
+TEST_CASES_SYSTEM.md
+TEST_CASES_UNIT.md
+TRACEABILITY_MATRIX.md
