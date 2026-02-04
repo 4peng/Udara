@@ -1,41 +1,37 @@
 # Udara - Air Quality Monitoring System
 
-**Udara** ("Air" in Malay/Indonesian) is a comprehensive IoT-based Air Quality Monitoring system. It consists of a **React Native (Expo)** mobile application for visualization and user interaction, and a **Node.js/Express** backend for data processing and storage.
+**Udara** ("Air" in Malay/Indonesian) is a comprehensive IoT-based Air Quality Monitoring system designed for both real-time public awareness and environmental research. It features a React Native mobile app, a persistent Node.js backend, and a custom-built hardware sensor array.
 
 ## 🚀 Project Overview
 
-The system allows users to:
-*   **Monitor Real-time Air Quality:** View AQI (Air Quality Index), PM2.5, PM10, CO2, NO2, and SO2 levels.
-*   **Track Environmental Metrics:** Monitor temperature and humidity from connected IoT devices.
-*   **Visualize Data:** Interactive charts for 24h, weekly, and monthly trends.
-*   **Map Interface:** View device locations and their status on a map.
-*   **Receive Alerts:** (Planned) Push notifications for hazardous air quality.
+The system provides:
+*   **Real-time Monitoring:** Tracking PM2.5, PM10, CO2, NO2, SO2, Temperature, and Humidity.
+*   **Instant Alerts:** Sub-second latency push notifications triggered by hazardous air quality levels.
+*   **Research Tools:** Historical data logging (MongoDB) and simulation scripts for behavioral studies.
+*   **Multi-Platform Access:** Native Mobile App (iOS/Android) and Web Dashboard.
+
+---
 
 ## 🏗️ System Architecture
 
-The following diagram illustrates the high-level data flow from the IoT sensors to the user's mobile device:
-
 ```mermaid
 graph TD
-    subgraph "Data Source"
-        IoT[IoT Sensors / CSV Data] -->|Upload| BE
+    subgraph "Edge Layer (Hardware)"
+        Sensors[PMS5003, BME280, Alphasense] --> Arduino[Arduino Mega]
+        Arduino --> RPi[Raspberry Pi 3b]
+        RPi -->|MQTT/TLS| BE
     end
 
-    subgraph "Cloud Backend (Node.js/Express)"
+    subgraph "Cloud Backend (Render)"
         BE[Express API] <-->|Read/Write| DB[(MongoDB Atlas)]
-        BE -->|Logic| AQI[AQI Calculation Engine]
+        Monitor[Real-time Monitor] -->|Watch Stream| DB
+        Monitor -->|Trigger| ExpoPush[Expo Push Service]
     end
 
-    subgraph "Mobile App (React Native/Expo)"
-        APP[Udara App] <-->|REST API / JSON| BE
-        APP <-->|Auth| FB[Firebase Auth]
-        APP -->|Notifications| EN[Expo Push Service]
-    end
-
-    subgraph "User Interaction"
-        APP -->|UI/UX| Map[Interactive Maps]
-        APP -->|UI/UX| Charts[Trend Charts]
-        APP -->|Alerts| Push[Push Notifications]
+    subgraph "Presentation Layer"
+        App[Mobile App - Expo] <-->|Auth| FB[Firebase Auth]
+        App <-->|REST| BE
+        Web[Web Dashboard - Vercel] <-->|REST| BE
     end
 ```
 
@@ -43,138 +39,71 @@ graph TD
 
 ## 🛠 Tech Stack
 
-### **Frontend (Mobile)**
-*   **Framework:** React Native (Expo SDK 53)
-*   **Language:** TypeScript
-*   **Routing:** Expo Router v5 (File-based routing)
-*   **Maps:** `react-native-maps` / `react-native-leaflet-view`
-*   **Charts:** `react-native-chart-kit`
-*   **Styling:** Standard React Native Stylesheets
+### **Frontend & Mobile**
+*   **Mobile:** React Native (Expo SDK 53) with Native Google Sign-In.
+*   **Web:** Next.js (Vercel).
+*   **Routing:** Expo Router v5.
+*   **Persistence:** AsyncStorage & MMKV.
 
-### **Backend (API)**
-*   **Runtime:** Node.js
-*   **Framework:** Express.js
-*   **Database:** MongoDB (Atlas)
-*   **Authentication:** Firebase Auth (Client-side)
+### **Backend & Data**
+*   **Runtime:** Node.js (Render - Persistent Instance).
+*   **Database:** MongoDB Atlas (Replica Set for Change Streams).
+*   **Push Service:** `expo-server-sdk`.
 
----
-
-## 📂 Project Structure
-
-```
-E:\udara\
-├── .env                    # Frontend Environment Variables (API URL, Firebase keys)
-├── app/                    # Frontend Source Code (Expo Router)
-│   ├── (auth)/             # Authentication Routes (Login, Signup)
-│   ├── (tabs)/             # Main Tab Navigation (Home, Map, Sensors, etc.)
-│   ├── sensor/             # Dynamic Sensor Detail Routes
-│   └── _layout.tsx         # Root Layout Configuration
-├── assets/                 # Static Assets (Images, Fonts)
-├── backend/                # Backend Source Code
-│   ├── .env                # Backend Environment Variables (DB URI, Port)
-│   ├── server.js           # Main Server Entry Point
-│   └── utils/              # Helper Functions (AQI Calculation)
-├── components/             # Reusable UI Components
-├── config/                 # App Configuration (API, Firebase)
-├── hooks/                  # Custom React Hooks (Data Fetching)
-└── utils/                  # Frontend Utilities
-```
+### **Hardware**
+*   **Controller:** Raspberry Pi 3b + Arduino Mega.
+*   **Power:** Geekworm X728 UPS.
+*   **Sensors:** Alphasense 4-way AFE (CO, SO2, NO2, O3), PMS5003, BME280.
 
 ---
 
 ## ⚙️ Setup & Installation
 
-### 1. Prerequisites
-*   **Node.js** (v18+ recommended)
-*   **npm** or **yarn**
-*   **MongoDB Atlas** Connection String
-*   **Firebase Project** (for Authentication)
+### 1. Backend Setup (Render/Local)
+1.  `cd backend`
+2.  `npm install`
+3.  Configure `.env` with `MONGODB_URI` and `PORT`.
+4.  `npm run dev` (Local) or deploy to Render.
 
-### 2. Backend Setup
-The backend handles data fetching from MongoDB and AQI calculations.
-
-1.  Navigate to the backend directory:
-    ```bash
-    cd backend
-    ```
-2.  Install dependencies:
-    ```bash
-    npm install
-    ```
-3.  Create a `.env` file in the `backend/` directory:
-    ```ini
-    PORT=3001
-    MONGODB_URI=your_mongodb_connection_string_here
-    DB_NAME=UMUdara
-    ```
-4.  Start the server:
-    ```bash
-    npm start
-    # Backend API is hosted on Vercel
-# https://udara-backend.vercel.app
-    ```
-
-### 3. Frontend Setup
-The frontend is built with Expo.
-
-1.  Navigate back to the root directory:
-    ```bash
-    cd ..
-    ```
-2.  Install dependencies:
-    ```bash
-    npm install
-    ```
-3.  Create a `.env` file in the **root** directory:
-    ```ini
-# Use https://udara-backend.vercel.app for production and development
-EXPO_PUBLIC_API_URL=https://udara-backend.vercel.app
-
-    # Firebase Configuration
-    EXPO_PUBLIC_FIREBASE_API_KEY=your_api_key
-    EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-    EXPO_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-    EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
-    EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-    EXPO_PUBLIC_FIREBASE_APP_ID=your_app_id
-    EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID=your_measurement_id
-    ```
-4.  Start the Expo development server:
-    ```bash
-    npx expo start
-    ```
-    *   Press **`a`** to open in Android Emulator.
-    *   Press **`i`** to open in iOS Simulator (macOS only).
-    *   Scan the QR code with the **Expo Go** app on your physical device.
+### 2. Frontend Setup (Expo)
+1.  `npm install`
+2.  Configure `.env` with `EXPO_PUBLIC_API_URL` and Firebase credentials.
+3.  **Development Build:** Native modules (Google Sign-In) require a native build.
+    *   `npx expo run:android` or `npx expo run:ios`.
 
 ---
 
-## 📡 API Endpoints
+## 📡 Key Endpoints & Links
 
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `GET` | `/api/devices` | List all active devices with latest AQI |
-| `GET` | `/api/devices/:id` | Get detailed data for a specific device |
-| `GET` | `/api/devices/:id/history` | Get historical pollutant data |
-| `GET` | `/health` | Server health check |
+| Service | URL / Endpoint |
+| :--- | :--- |
+| **Backend API** | `https://udara.onrender.com` |
+| **Web Dashboard** | `https://udara-frontend.vercel.app/` |
+| **Mobile Build** | [Expo Build Link](https://expo.dev/accounts/4peng/projects/Udara/builds/cfa116ac-a719-4282-b1ee-81c6d1731a3a) |
+| **Health Check** | `GET /health` |
 
 ---
 
-## 🧩 Key Components
+## 📊 Research & Data Analysis
+*   **Data Export:** Data is stored in MongoDB Atlas (`sensor_data_readings`).
+*   **Simulation:** Use `node backend/scripts/simulateBadAir.js` to trigger alerts for testing user response.
+*   **Thresholds:** PM2.5 (Hazardous > 35.4), PM10 (Hazardous > 154).
 
-*   **`backend/utils/aqiCalculator.js`**: Contains the logic for converting raw pollutant concentrations (PM2.5, PM10, etc.) into a standardized AQI score (0-300+ scale).
-*   **`hooks/useDevices.ts`**: Custom hook that handles fetching device lists from the API.
-*   **`app/(tabs)/map.tsx`**: Renders the interactive map using Leaflet/Mapbox.
+---
 
-## 🐛 Troubleshooting
+## ⚠️ Known Issues & Limitations
+1.  **Alphasense Sensors:** Currently failing to provide stable readings; requires calibration by Mr. Khor (+60 16-438 9523).
+2.  **Thermal Drift:** Heat trapped in the enclosure skews BME280 temperature data.
+3.  **Connectivity:** Intermittent data transmission gaps under investigation.
 
-*   **Network Error / Fetch Failed:**
-    *   Ensure the backend is running (`npm start` in `backend/`).
-    *   Check your `EXPO_PUBLIC_API_URL`. It should be set to `https://udara-backend.vercel.app` for the production backend.
-*   **MongoDB Connection Error:**
-    *   Check your `MONGODB_URI` in `backend/.env`.
-    *   Ensure your IP address is whitelisted in MongoDB Atlas Network Access.
+---
+
+## 👥 Roles
+*   **Farhan:** Mobile App & Backend Implementation.
+*   **Lutfi:** Web Development & Hardware Design (3D Print).
+*   **PhD Researcher:** Environmental Data Analysis & Study Lead.
+
+---
 
 ## 📝 License 
-
-This project is for educational and development purposes.
+Project developed for research and educational purposes.
