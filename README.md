@@ -89,21 +89,3 @@ graph TD
 *   **Simulation:** Use `node backend/scripts/simulateBadAir.js` to trigger alerts for testing user response.
 *   **Thresholds:** PM2.5 (Hazardous > 35.4), PM10 (Hazardous > 154).
 
----
-
-## ⚠️ Known Issues & Limitations
-1.  **Alphasense Sensors:** Currently failing to provide stable readings; requires calibration by Mr. Khor (+60 16-438 9523).
-2.  **Thermal Drift:** Heat trapped in the enclosure skews BME280 temperature data.
-3.  **Connectivity:** Intermittent data transmission gaps under investigation.
-
----
-
-## 👥 Roles
-*   **Farhan:** Mobile App & Backend Implementation.
-*   **Lutfi:** Web Development & Hardware Design (3D Print).
-*   **PhD Researcher:** Environmental Data Analysis & Study Lead.
-
----
-
-## 📝 License 
-Project developed for research and educational purposes.
