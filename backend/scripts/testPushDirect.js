@@ -3,13 +3,19 @@ require('dotenv').config();
 const { Expo } = require('expo-server-sdk');
 const mongoose = require('mongoose');
 const User = require('../model/User');
+const { setServers } = require('node:dns/promises');
+
+// Set DNS servers to resolve records reliably
+setServers(["1.1.1.1", "8.8.8.8"]);
 
 const expo = new Expo();
 
 async function run() {
   try {
     console.log("🔌 Connecting to DB...");
-    await mongoose.connect(process.env.MONGODB_URI);
+    await mongoose.connect(process.env.MONGODB_URI, {
+      family: 4
+    });
     
     // 1. Find the user
     const email = "farhanfitri1@gmail.com"; // Your email
@@ -42,8 +48,6 @@ async function run() {
             title: "🔔 Test Push",
             body: "This is a direct test from the backend script.",
             data: { test: true },
-            priority: 'high', // Important for Android
-            channelId: 'default', // Important for Android Expo
         });
     }
 

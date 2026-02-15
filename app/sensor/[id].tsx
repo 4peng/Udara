@@ -1,8 +1,6 @@
-// app/sensor/[id].tsx
-"use client"
-
+﻿// app/sensor/[id].tsx
 import { Ionicons } from "@expo/vector-icons"
-import { router, useLocalSearchParams } from "expo-router"
+import { useRouter, useLocalSearchParams } from "expo-router"
 import { useEffect, useState } from "react"
 import {
   ActivityIndicator,
@@ -23,6 +21,7 @@ import { getComfortLevel, getComfortLevelColor, calculateHeatIndex } from "../..
 import { LAYOUT } from "../../constants/Layout"
 
 export default function SensorDetailScreen() {
+  const router = useRouter()
   const { id } = useLocalSearchParams()
   const [selectedPeriod, setSelectedPeriod] = useState("24h")
   const [refreshing, setRefreshing] = useState(false)
@@ -79,16 +78,29 @@ export default function SensorDetailScreen() {
         day: 'numeric', 
         hour: 'numeric', 
         minute: 'numeric',
-        hour12: true 
+        hour12: true,
+        timeZone: "Asia/Kuala_Lumpur"
       });
     } catch (e) {
       return dateString;
     }
   }
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back()
+    } else {
+      router.replace("/(tabs)")
+    }
+  }
+
   const renderHeader = () => (
     <View style={styles.header}>
-      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+      <TouchableOpacity 
+        style={styles.backButton} 
+        onPress={handleBack}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      >
         <Ionicons name="chevron-back" size={24} color="#333" />
       </TouchableOpacity>
       <View style={styles.headerCenter}>
@@ -193,10 +205,10 @@ export default function SensorDetailScreen() {
               <Text style={styles.environmentalCardTitle}>Temperature</Text>
             </View>
             <Text style={styles.environmentalCardValue}>
-              {currentTemp !== undefined ? `${currentTemp.toFixed(1)}°C` : 'N/A'}
+              {currentTemp !== undefined ? `${currentTemp.toFixed(1)}\u00B0C` : 'N/A'}
             </Text>
             <Text style={styles.environmentalCardSubtext}>
-              24h avg: {device.environmental.average24h.temperature !== undefined ? `${device.environmental.average24h.temperature.toFixed(1)}°C` : 'N/A'}
+              24h avg: {device.environmental.average24h.temperature !== undefined ? `${device.environmental.average24h.temperature.toFixed(1)}\u00B0C` : 'N/A'}
             </Text>
             <View style={styles.environmentalCardChart}>
               <View 
@@ -247,7 +259,7 @@ export default function SensorDetailScreen() {
           <View style={styles.trendItem}>
             <Text style={styles.trendLabel}>Heat Index</Text>
             <Text style={styles.trendValue}>
-              {heatIndex !== undefined ? `${heatIndex}°C` : 'N/A'}
+              {heatIndex !== undefined ? `${heatIndex}\u00B0C` : 'N/A'}
             </Text>
           </View>
         </View>
@@ -299,14 +311,14 @@ export default function SensorDetailScreen() {
         <LineChart
           data={currentChartData}
           width={LAYOUT.window.width - 40}
-          height={200}
+          height={220}
           chartConfig={{
             backgroundColor: "#ffffff",
             backgroundGradientFrom: "#ffffff",
             backgroundGradientTo: "#ffffff",
             decimalPlaces: 0,
             color: (opacity = 1) => `rgba(67, 97, 238, ${opacity})`,
-            labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity * 0.6})`,
+            labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity * 0.8})`,
             style: {
               borderRadius: 16,
             },
@@ -327,13 +339,12 @@ export default function SensorDetailScreen() {
           withOuterLines={false}
           withVerticalLines={false}
           withHorizontalLines={true}
+          withVerticalLabels={true}
+          withHorizontalLabels={true}
+          yAxisSuffix=""
+          yAxisLabel=""
           // Hide some x-labels to prevent overcrowding
           formatXLabel={(label) => {
-             // Only show every 3rd label or so if there are many points
-             // But react-native-chart-kit doesn't have a direct 'step' prop for x-axis
-             // We handle this by passing empty strings in data generation, OR
-             // we accept they are long. The user said numbers are too long.
-             // We will try to shorten them in the hook data generation.
              return label;
           }}
         />

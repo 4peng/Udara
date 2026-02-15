@@ -1,12 +1,18 @@
 // scripts/checkSubscriptions.js
 require('dotenv').config();
 const mongoose = require('mongoose');
-const User = require('../model/User'); // Uses your local User model
+const User = require('../model/User');
+const { setServers } = require('node:dns/promises');
+
+// Set DNS servers to resolve SRV records reliably
+setServers(["1.1.1.1", "8.8.8.8"]); // Uses your local User model
 
 async function check() {
   try {
     console.log("🔌 Connecting...");
-    await mongoose.connect(process.env.MONGODB_URI);
+    await mongoose.connect(process.env.MONGODB_URI, {
+      family: 4
+    });
     console.log("✅ Connected.");
 
     // Find all users with ANY subscriptions

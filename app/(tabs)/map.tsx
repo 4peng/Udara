@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
@@ -75,9 +75,7 @@ export default function MapScreen() {
 
   const renderHeader = () => (
     <View style={styles.header}>
-      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-        <Ionicons name="chevron-back" size={24} color="#333" />
-      </TouchableOpacity>
+      <View style={{ width: 40 }} />
       <Text style={styles.headerTitle}>Campus Map</Text>
       <TouchableOpacity style={styles.filterButton} onPress={() => setModalVisible(true)}>
         <Ionicons name="options-outline" size={24} color="#333" />
@@ -230,9 +228,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: "#E0E0E0",
-  },
-  backButton: {
-    padding: 8,
   },
   headerTitle: {
     fontSize: 18,

@@ -272,6 +272,22 @@ export default function HomeScreen() {
     setShowDebugInfo(!showDebugInfo)
   }
 
+  // Calculate the most recent update time from device data
+  const apiLastUpdated = useMemo(() => {
+    if (safeDevices.length === 0) return lastRefreshTime
+
+    // Get all valid timestamps
+    const timestamps = safeDevices
+      .map(d => d.lastUpdated ? new Date(d.lastUpdated).getTime() : 0)
+      .filter(t => t > 0)
+
+    if (timestamps.length === 0) return lastRefreshTime
+
+    // Get the most recent one
+    const latestTimestamp = Math.max(...timestamps)
+    return new Date(latestTimestamp)
+  }, [safeDevices, lastRefreshTime])
+
   const formatTimeUntilRefresh = (timeMs: number): string => {
     const minutes = Math.floor(timeMs / 60000)
     const seconds = Math.floor((timeMs % 60000) / 1000)
@@ -502,9 +518,11 @@ export default function HomeScreen() {
       {/* Last Updated Status */}
       <View style={styles.refreshStatus}>
         <Text style={styles.lastRefreshText}>
-          Last updated: {lastRefreshTime.toLocaleTimeString("en-US", {
+          Last updated: {apiLastUpdated.toLocaleTimeString("en-US", {
             hour: "2-digit",
             minute: "2-digit",
+            timeZone: "Asia/Kuala_Lumpur",
+            hour12: true
           })}
         </Text>
       </View>

@@ -297,8 +297,9 @@ export const useDeviceDetail = (deviceId: string) => {
       for (let i = 0; i < historicalData.length; i += step) {
         const item = historicalData[i]
         const date = new Date(item.timestamp)
-        // Super short format: "14" (just the hour)
-        const time = `${date.getHours()}`
+        // Short time format: "14:00"
+        const hours = date.getHours()
+        const time = `${hours}:00`
 
         labels.push(time)
         dataPoints.push(calculateAQI(item.pollutants))

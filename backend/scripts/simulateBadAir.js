@@ -1,6 +1,10 @@
 // scripts/simulateBadAir.js
 require('dotenv').config();
 const mongoose = require('mongoose');
+const { setServers } = require('node:dns/promises');
+
+// Set DNS servers to resolve SRV records reliably
+setServers(["1.1.1.1", "8.8.8.8"]);
 
 // Define simplified schema for insertion only
 const readingSchema = new mongoose.Schema({}, { strict: false, collection: 'sensor_data_readings' });
@@ -15,7 +19,9 @@ async function runSimulation() {
     if (!process.env.MONGODB_URI) {
         throw new Error("MONGODB_URI is missing in .env file");
     }
-    await mongoose.connect(process.env.MONGODB_URI);
+    await mongoose.connect(process.env.MONGODB_URI, {
+      family: 4
+    });
     console.log("✅ Connected!");
 
     // 2. Target specific device: Device_B

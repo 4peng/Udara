@@ -1,5 +1,3 @@
-"use client"
-
 import { Ionicons } from "@expo/vector-icons"
 import { router, useFocusEffect } from "expo-router"
 import { useState, useCallback } from "react"

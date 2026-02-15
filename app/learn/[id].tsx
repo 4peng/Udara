@@ -1,7 +1,5 @@
-"use client"
-
-import { Ionicons } from "@expo/vector-icons"
-import { router, useLocalSearchParams, Stack } from "expo-router"
+﻿import { Ionicons } from "@expo/vector-icons"
+import { useRouter, useLocalSearchParams, Stack } from "expo-router"
 import { useState, useEffect } from "react"
 import { Image, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native"
 import AsyncStorage from "@react-native-async-storage/async-storage"
@@ -9,14 +7,14 @@ import { STORAGE_KEYS } from "../../constants/StorageKeys"
 
 // Mock article content with high-quality images
 const articleContent = {
-  1: {
+  "1": {
     title: "Understanding Air Quality Index (AQI)",
     subtitle: "Learn how AQI affects your daily life and health",
     readTime: "5 min read",
     image: "https://images.unsplash.com/photo-1532187643603-ba119ca4109e?w=800&fit=crop",
     content: "\nThe Air Quality Index (AQI) is a standardized system used to communicate how polluted the air currently is or how polluted it is forecast to become. The AQI focuses on health effects you may experience within a few hours or days after breathing polluted air.\n\n## What is AQI?\n\nThe AQI is calculated for five major air pollutants regulated by the Clean Air Act:\n- Ground-level ozone\n- Particle pollution (PM2.5 and PM10)\n- Carbon monoxide\n- Sulfur dioxide\n- Nitrogen dioxide\n\n## AQI Categories\n\n**Good (0-50)**: Air quality is considered satisfactory, and air pollution poses little or no risk.\n\n**Moderate (51-100)**: Air quality is acceptable; however, for some pollutants there may be a moderate health concern for a very small number of people.\n\n**Unhealthy for Sensitive Groups (101-150)**: Members of sensitive groups may experience health effects. The general public is not likely to be affected.\n\n**Unhealthy (151-200)**: Everyone may begin to experience health effects; members of sensitive groups may experience more serious health effects.\n\n**Very Unhealthy (201-300)**: Health warnings of emergency conditions. The entire population is more likely to be affected.\n\n**Hazardous (301-500)**: Health alert: everyone may experience more serious health effects.\n\n## How to Use AQI Information\n\nCheck the daily AQI forecast in your area and plan your activities accordingly. When AQI values are above 100, air quality is considered unhealthy for sensitive groups, and you should consider limiting prolonged outdoor exertion.\n    ",
   },
-  2: {
+  "2": {
     title: "Indoor Air Quality Guide",
     subtitle: "Essential tips for maintaining clean indoor air in your home and workplace",
     readTime: "4 min read",
@@ -44,7 +42,7 @@ Many people don't realize that indoor air can be significantly more polluted tha
 **Plants**: Some houseplants, like spider plants and peace lilies, can help filter out certain pollutants naturally.
     `,
   },
-  3: {
+  "3": {
     title: "Air Pollution Sources",
     subtitle: "Common sources of air pollution and their impact on health",
     readTime: "6 min read",
@@ -75,7 +73,7 @@ Agricultural areas, cities, and wood-burning fireplaces are considered "area sou
 Simple actions like carpooling, using public transport, conserving energy at home, and avoiding burning trash can help reduce overall pollution levels.
     `,
   },
-  4: {
+  "4": {
     title: "Protective Measures",
     subtitle: "How to protect yourself from poor air quality",
     readTime: "3 min read",
@@ -103,7 +101,7 @@ Designate a room in your home with few windows and doors as a "clean room." Run 
 If you must be outside during hazardous conditions, N95 or KN95 respirators can filter out fine particles (PM2.5). Cloth masks and surgical masks generally provide little protection against air pollution.
     `,
   },
-  5: {
+  "5": {
     title: "Air Quality Testing",
     subtitle: "Guide to testing and monitoring air quality in your environment",
     readTime: "5 min read",
@@ -135,14 +133,14 @@ Simple signs can indicate poor air quality:
 Don't panic over short-term spikes (like from cooking). Look for long-term trends and persistent high levels to identify sources you can control.
     `,
   },
-  6: {
+  "6": {
     title: "Seasonal Air Quality Changes",
     subtitle: "How air quality varies throughout the year and what to expect",
     readTime: "4 min read",
     image: "https://images.unsplash.com/photo-1476610182048-b716b8518aae?w=800&fit=crop",
-    content: "\nAir quality is not static; it fluctuates with the seasons due to changes in weather patterns and human activities.\n\n## Winter\n\n**Inversions**: Cold air near the ground can get trapped by a layer of warm air above, holding pollutants close to the surface.\n**Heating**: Wood burning and increased energy use for heating contribute to higher particulate matter levels.\n\n## Spring\n\n**Allergens**: Tree and grass pollens are at their peak, affecting those with allergies and asthma.\n**Wind**: Windy conditions can transport dust and pollutants over long distances.\n\n## Summer\n\n**Ozone**: Sunlight and heat react with emissions from vehicles and industry to form ground-level ozone, a powerful respiratory irritant.\n**Wildfires**: Heat and drought increase the risk of wildfires, which can degrade air quality across entire continents.\n\n## Autumn\n\n**Stagnation**: Calm weather can lead to pollutant buildup.\n**Leaf Burning**: In some areas, burning yard waste releases smoke and particles.\n\n## Preparation\n\nKnowing these patterns helps you prepare—like ensuring you have allergy medication in spring or checking ozone forecasts in summer.\n    ",
+    content: "\nAir quality is not static; it fluctuates with the seasons due to changes in weather patterns and human activities.\n\n## Winter\n\n**Inversions**: Cold air near the ground can get trapped by a layer of warm air above, holding pollutants close to the surface.\n**Heating**: Wood burning and increased energy use for heating contribute to higher particulate matter levels.\n\n## Spring\n\n**Allergens**: Tree and grass pollens are at their peak, affecting those with allergies and asthma.\n**Wind**: Windy conditions can transport dust and pollutants over long distances.\n\n## Summer\n\n**Ozone**: Sunlight and heat react with emissions from vehicles and industry to form ground-level ozone, a powerful respiratory irritant.\n**Wildfires**: Heat and drought increase the risk of wildfires, which can degrade air quality across entire continents.\n\n## Autumn\n\n**Stagnation**: Calm weather can lead to pollutant buildup.\n**Leaf Burning**: In some areas, burning yard waste releases smoke and particles.\n\n## Preparation\n\nKnowing these patterns helps you prepare\u2014like ensuring you have allergy medication in spring or checking ozone forecasts in summer.\n    ",
   },
-  7: {
+  "7": {
     title: "Air Quality and Exercise",
     subtitle: "Best practices for outdoor activities during different air quality conditions",
     readTime: "6 min read",
@@ -152,6 +150,7 @@ Don't panic over short-term spikes (like from cooking). Look for long-term trend
 }
 
 export default function ArticleScreen() {
+  const router = useRouter()
   const { id } = useLocalSearchParams()
   const article = articleContent[id as keyof typeof articleContent]
   const [isBookmarked, setIsBookmarked] = useState(false)
@@ -190,13 +189,21 @@ export default function ArticleScreen() {
     }
   }
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back()
+    } else {
+      router.replace("/(tabs)/learn")
+    }
+  }
+
   if (!article) {
     return (
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="dark-content" />
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Article not found</Text>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <TouchableOpacity style={styles.backButton} onPress={handleBack}>
             <Text style={styles.backButtonText}>Go Back</Text>
           </TouchableOpacity>
         </View>
@@ -206,8 +213,12 @@ export default function ArticleScreen() {
 
   const renderHeader = () => (
     <View style={styles.header}>
-      <TouchableOpacity style={styles.headerBackButton} onPress={() => router.back()}>
-        <Ionicons name="chevron-back" size={24} color="#333" />
+      <TouchableOpacity 
+        style={styles.headerBackButton} 
+        onPress={handleBack}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      >
+        <Ionicons name="chevron-back" size={28} color="#333" />
       </TouchableOpacity>
       <View style={styles.headerActions}>
         <TouchableOpacity style={styles.headerButton} onPress={toggleBookmark}>
@@ -221,29 +232,74 @@ export default function ArticleScreen() {
     </View>
   )
 
-  const formatContent = (content: string) => {
-    return content.split("\n").map((paragraph, index) => {
-      if (paragraph.startsWith("## ")) {
+  const renderInlineStyles = (text: string) => {
+    // Split by ** or * while keeping the delimiters
+    const parts = text.split(/(\*\*.*?\*\*|\*.*?\*)/g)
+    return parts.map((part, index) => {
+      if (part.startsWith("**") && part.endsWith("**")) {
         return (
-          <Text key={index} style={styles.heading}>
-            {paragraph.replace("## ", "")}
-          </Text>
-        )
-      } else if (paragraph.startsWith("**") && paragraph.endsWith("**")) {
-        return (
-          <Text key={index} style={styles.boldText}>
-            {paragraph.replace(/\*\*/g, "")}
-          </Text>
-        )
-      } else if (paragraph.trim() === "") {
-        return <View key={index} style={styles.spacer} />
-      } else {
-        return (
-          <Text key={index} style={styles.paragraph}>
-            {paragraph}
+          <Text key={index} style={{ fontWeight: "bold" }}>
+            {part.slice(2, -2)}
           </Text>
         )
       }
+      if (part.startsWith("*") && part.endsWith("*")) {
+        return (
+          <Text key={index} style={{ fontStyle: "italic" }}>
+            {part.slice(1, -1)}
+          </Text>
+        )
+      }
+      return part
+    })
+  }
+
+  const formatContent = (content: string) => {
+    return content.split("\n").map((line, index) => {
+      const trimmedLine = line.trim()
+
+      if (trimmedLine.startsWith("# ")) {
+        return (
+          <Text key={index} style={[styles.heading, { fontSize: 24 }]}>
+            {trimmedLine.replace("# ", "")}
+          </Text>
+        )
+      }
+
+      if (trimmedLine.startsWith("## ")) {
+        return (
+          <Text key={index} style={styles.heading}>
+            {trimmedLine.replace("## ", "")}
+          </Text>
+        )
+      }
+
+      if (trimmedLine.startsWith("### ")) {
+        return (
+          <Text key={index} style={[styles.heading, { fontSize: 18 }]}>
+            {trimmedLine.replace("### ", "")}
+          </Text>
+        )
+      }
+
+      if (trimmedLine.startsWith("- ")) {
+        return (
+          <View key={index} style={styles.listItem}>
+            <Text style={styles.bullet}>\u2022</Text>
+            <Text style={styles.paragraph}>{renderInlineStyles(trimmedLine.replace("- ", ""))}</Text>
+          </View>
+        )
+      }
+
+      if (trimmedLine === "") {
+        return <View key={index} style={styles.spacer} />
+      }
+
+      return (
+        <Text key={index} style={styles.paragraph}>
+          {renderInlineStyles(line)}
+        </Text>
+      )
     })
   }
 
@@ -284,6 +340,7 @@ const styles = StyleSheet.create({
   },
   headerBackButton: {
     padding: 8,
+    marginLeft: -8, // Offset padding to align with edge
   },
   headerActions: {
     flexDirection: "row",
@@ -351,6 +408,17 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     marginBottom: 8,
   },
+  listItem: {
+    flexDirection: "row",
+    marginBottom: 8,
+    paddingLeft: 8,
+  },
+  bullet: {
+    fontSize: 16,
+    color: "#333",
+    marginRight: 8,
+    lineHeight: 24,
+  },
   spacer: {
     height: 8,
   },
@@ -377,3 +445,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 })
+
