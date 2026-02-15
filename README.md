@@ -1,6 +1,6 @@
 # Udara - Air Quality Monitoring System
 
-**Udara** ("Air" in Malay/Indonesian) is a comprehensive IoT-based Air Quality Monitoring system designed for both real-time public awareness and environmental research. It features a React Native mobile app, a persistent Node.js backend, and a custom-built hardware sensor array.
+**Udara** ("Air" in Malay) is a comprehensive IoT-based Air Quality Monitoring system designed for both real-time public awareness and environmental research. It features a React Native mobile app, a persistent Node.js backend, and a custom-built hardware sensor array.
 
 ## 🚀 Project Overview
 
