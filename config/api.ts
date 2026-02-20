@@ -1,11 +1,10 @@
 import { Platform } from "react-native"
 
-// --- ONE PLACE TO CHANGE THE API URL ---
-// Production: "https://udara.onrender.com"
-// Local: "http://localhost:4000" (Auto-detects Android Emulator IP)
-const BASE_URL = "https://udara.onrender.com"; 
+// The app reads this from your root .env (EXPO_PUBLIC_API_URL)
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000";
 
 // --- DO NOT EDIT BELOW ---
+// Automatically handle Android Emulator IP (10.0.2.2) when localhost is used.
 const FINAL_URL = BASE_URL.includes('localhost') && Platform.OS === 'android' 
   ? BASE_URL.replace('localhost', '10.0.2.2') 
   : BASE_URL;
