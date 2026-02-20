@@ -1,5 +1,4 @@
 // scripts/testPushDirect.js
-process.env.TZ = 'Asia/Kuala_Lumpur';
 require('dotenv').config();
 const { Expo } = require('expo-server-sdk');
 const mongoose = require('mongoose');

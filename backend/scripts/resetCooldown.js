@@ -7,8 +7,8 @@ const { setServers } = require('node:dns/promises');
 // Set DNS servers to resolve records reliably
 setServers(['1.1.1.1', '8.8.8.8']);
 
-// Default to Render (Production), use 'http://localhost:4000' for local testing
-const API_URL = 'https://udara.onrender.com';
+// Default to environment variable (Production), fallback for local testing
+const API_URL = process.env.BACKEND_URL || 'http://localhost:4000';
 
 async function reset() {
   console.log(`🔄 Requesting cooldown reset from ${API_URL}...`);

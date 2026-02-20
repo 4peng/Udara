@@ -1,5 +1,4 @@
 // scripts/simulateBadAir.js
-process.env.TZ = 'Asia/Kuala_Lumpur';
 require('dotenv').config();
 const mongoose = require('mongoose');
 const { setServers } = require('node:dns/promises');

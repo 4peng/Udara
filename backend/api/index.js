@@ -1,5 +1,4 @@
 // api/index.js - Serverless version for Vercel
-process.env.TZ = 'Asia/Kuala_Lumpur';
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
@@ -8,12 +7,7 @@ const cors = require('cors');
 const app = express();
 
 // Middleware
-app.use(
-  cors({
-    origin: ['http://localhost:3000', 'https://udara-frontend.vercel.app'],
-    credentials: true,
-  })
-);
+app.use(cors()); // Allows all origins for easier development
 app.use(express.json());
 
 // MongoDB connection with caching for serverless

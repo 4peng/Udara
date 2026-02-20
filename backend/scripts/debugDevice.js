@@ -1,5 +1,4 @@
 // scripts/debugDevice.js
-process.env.TZ = 'Asia/Kuala_Lumpur';
 require('dotenv').config();
 const mongoose = require('mongoose');
 const Device = require('../model/Device'); // Uses the local Model file

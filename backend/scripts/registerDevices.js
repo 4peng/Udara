@@ -1,5 +1,4 @@
 // scripts/registerDevices.js
-process.env.TZ = 'Asia/Kuala_Lumpur';
 require('dotenv').config();
 const mongoose = require('mongoose');
 

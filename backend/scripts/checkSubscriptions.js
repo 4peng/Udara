@@ -1,5 +1,4 @@
 // scripts/checkSubscriptions.js
-process.env.TZ = 'Asia/Kuala_Lumpur';
 require('dotenv').config();
 const mongoose = require('mongoose');
 const User = require('../model/User');

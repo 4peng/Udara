@@ -1,4 +1,3 @@
-process.env.TZ = 'Asia/Kuala_Lumpur';
 const cron = require('node-cron');
 const SensorReading = require('../model/SensorReading');
 const User = require('../model/User');
