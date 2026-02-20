@@ -1,5 +1,5 @@
 // model/User.js - Simplified User Model for Air Quality System
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 // Subscription schema - one per device the user monitors
 const subscriptionSchema = new mongoose.Schema(
@@ -24,48 +24,48 @@ const subscriptionSchema = new mongoose.Schema(
         enabled: { type: Boolean, default: true },
         warning: { type: Number, default: 35 },
         critical: { type: Number, default: 75 },
-        unit: { type: String, default: "µg/m³" },
+        unit: { type: String, default: 'µg/m³' },
       },
       pm10: {
         enabled: { type: Boolean, default: true },
         warning: { type: Number, default: 50 },
         critical: { type: Number, default: 150 },
-        unit: { type: String, default: "µg/m³" },
+        unit: { type: String, default: 'µg/m³' },
       },
       o3: {
         enabled: { type: Boolean, default: true },
         warning: { type: Number, default: 100 },
         critical: { type: Number, default: 160 },
-        unit: { type: String, default: "ppb" },
+        unit: { type: String, default: 'ppb' },
       },
       no2: {
         enabled: { type: Boolean, default: true },
         warning: { type: Number, default: 100 },
         critical: { type: Number, default: 200 },
-        unit: { type: String, default: "ppb" },
+        unit: { type: String, default: 'ppb' },
       },
       so2: {
         enabled: { type: Boolean, default: true },
         warning: { type: Number, default: 150 },
         critical: { type: Number, default: 350 },
-        unit: { type: String, default: "ppb" },
+        unit: { type: String, default: 'ppb' },
       },
       co: {
         enabled: { type: Boolean, default: true },
         warning: { type: Number, default: 5 },
         critical: { type: Number, default: 9.4 },
-        unit: { type: String, default: "ppm" },
+        unit: { type: String, default: 'ppm' },
       },
       temperature_c: {
         enabled: { type: Boolean, default: false },
         min: { type: Number, default: 15 },
         max: { type: Number, default: 40 },
-        unit: { type: String, default: "°C" },
+        unit: { type: String, default: '°C' },
       },
       humidity_pct: {
         enabled: { type: Boolean, default: false },
         max: { type: Number, default: 85 },
-        unit: { type: String, default: "%" },
+        unit: { type: String, default: '%' },
       },
     },
     // Notification settings for this device
@@ -74,8 +74,8 @@ const subscriptionSchema = new mongoose.Schema(
         enabled: { type: Boolean, default: true },
         quietHours: {
           enabled: { type: Boolean, default: false },
-          start: { type: String, default: "22:00" },
-          end: { type: String, default: "08:00" },
+          start: { type: String, default: '22:00' },
+          end: { type: String, default: '08:00' },
         },
       },
       inApp: {
@@ -147,8 +147,8 @@ const userSchema = new mongoose.Schema({
   // === USER ROLE ===
   role: {
     type: String,
-    enum: ["user", "admin"],
-    default: "user",
+    enum: ['user', 'admin'],
+    default: 'user',
   },
 
   // === ACCOUNT STATUS ===
@@ -173,10 +173,12 @@ const userSchema = new mongoose.Schema({
   },
 
   // === PUSH NOTIFICATIONS ===
-  pushTokens: [{
-    type: String,
-    trim: true
-  }],
+  pushTokens: [
+    {
+      type: String,
+      trim: true,
+    },
+  ],
 
   // === TIMESTAMPS ===
   createdAt: {
@@ -194,7 +196,7 @@ const userSchema = new mongoose.Schema({
 // ===================================
 
 // Auto-generate userId and update timestamp
-userSchema.pre("save", function (next) {
+userSchema.pre('save', function (next) {
   this.updatedAt = new Date();
 
   // Generate userId like U2101912 if not exists
@@ -246,9 +248,7 @@ userSchema.methods.unsubscribeFromDevice = function (deviceId) {
 
 // Mark notification as read
 userSchema.methods.markNotificationAsRead = function (notificationId) {
-  const notification = this.recentNotifications.find(
-    (n) => n.notificationId === notificationId
-  );
+  const notification = this.recentNotifications.find((n) => n.notificationId === notificationId);
 
   if (notification && !notification.read) {
     notification.read = true;
@@ -272,4 +272,4 @@ userSchema.methods.getUnreadNotificationCount = function () {
   return this.recentNotifications.filter((n) => !n.read).length;
 };
 
-module.exports = mongoose.model("User", userSchema);
+module.exports = mongoose.model('User', userSchema);

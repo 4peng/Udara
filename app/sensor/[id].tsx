@@ -18,6 +18,7 @@ import { useAuth } from "../../hooks/useAuth"
 import { useDevicesWithMonitoring } from "../../hooks/useDevicesWithMonitoring"
 import { getAQIColor, getAQIStatus } from "../../utils/aqiUtils"
 import { getComfortLevel, getComfortLevelColor, calculateHeatIndex } from "../../utils/environmentalUtils"
+import { formatTimeMYT } from "../../utils/timeUtils"
 import { LAYOUT } from "../../constants/Layout"
 
 export default function SensorDetailScreen() {
@@ -72,15 +73,7 @@ export default function SensorDetailScreen() {
 
   const formatLastUpdated = (dateString: string) => {
     try {
-      const date = new Date(dateString);
-      return date.toLocaleString('en-US', { 
-        month: 'short', 
-        day: 'numeric', 
-        hour: 'numeric', 
-        minute: 'numeric',
-        hour12: true,
-        timeZone: "Asia/Kuala_Lumpur"
-      });
+      return formatTimeMYT(dateString);
     } catch (e) {
       return dateString;
     }

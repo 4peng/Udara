@@ -1,18 +1,18 @@
 /**
  * Malaysian Air Pollutant Index (API) Calculator
  * Based on Official Department of Environment (DOE) Malaysia formulas
- * 
+ *
  * Reference: https://www.doe.gov.my/wp-content/uploads/2021/09/API_Calculation.pdf
- * 
+ *
  * Key Points:
  * - Malaysian API uses different averaging periods for each pollutant
  * - PM10: 24-hour average (µg/m³)
- * - PM2.5: 24-hour average (µg/m³) 
+ * - PM2.5: 24-hour average (µg/m³)
  * - O3: 8-hour average (ppm) and 1-hour average (ppm)
  * - CO: 8-hour average (ppm)
  * - NO2: 1-hour average (ppm)
  * - SO2: 1-hour average (ppm)
- * 
+ *
  * The final API is the MAXIMUM of all sub-indices
  */
 
@@ -28,7 +28,7 @@ function calculateMalaysianAPI(readings) {
   if (hasValue(readings.pm10)) {
     subIndices.push({
       pollutant: 'PM10',
-      value: calculatePM10Index(readings.pm10)
+      value: calculatePM10Index(readings.pm10),
     });
   }
 
@@ -36,7 +36,7 @@ function calculateMalaysianAPI(readings) {
   if (hasValue(readings.pm2_5)) {
     subIndices.push({
       pollutant: 'PM2.5',
-      value: calculatePM25Index(readings.pm2_5)
+      value: calculatePM25Index(readings.pm2_5),
     });
   }
 
@@ -45,7 +45,7 @@ function calculateMalaysianAPI(readings) {
   if (hasValue(readings.O3_ppm)) {
     subIndices.push({
       pollutant: 'O3',
-      value: calculateOzoneIndex(readings.O3_ppm)
+      value: calculateOzoneIndex(readings.O3_ppm),
     });
   }
 
@@ -53,7 +53,7 @@ function calculateMalaysianAPI(readings) {
   if (hasValue(readings.CO_ppm)) {
     subIndices.push({
       pollutant: 'CO',
-      value: calculateCOIndex(readings.CO_ppm)
+      value: calculateCOIndex(readings.CO_ppm),
     });
   }
 
@@ -61,7 +61,7 @@ function calculateMalaysianAPI(readings) {
   if (hasValue(readings.NO2_ppm)) {
     subIndices.push({
       pollutant: 'NO2',
-      value: calculateNO2Index(readings.NO2_ppm)
+      value: calculateNO2Index(readings.NO2_ppm),
     });
   }
 
@@ -69,7 +69,7 @@ function calculateMalaysianAPI(readings) {
   if (hasValue(readings.SO2_ppm)) {
     subIndices.push({
       pollutant: 'SO2',
-      value: calculateSO2Index(readings.SO2_ppm)
+      value: calculateSO2Index(readings.SO2_ppm),
     });
   }
 
@@ -86,7 +86,7 @@ function calculateMalaysianAPI(readings) {
     value: Math.round(maxIndex.value),
     status: getApiStatus(maxIndex.value),
     predominant: maxIndex.pollutant,
-    allSubIndices: subIndices // Optional: include all sub-indices for debugging
+    allSubIndices: subIndices, // Optional: include all sub-indices for debugging
   };
 }
 
@@ -100,11 +100,11 @@ function calculatePM10Index(conc) {
   if (conc <= 50) {
     return conc;
   } else if (conc <= 350) {
-    return 50 + ((conc - 50) * 0.5);
+    return 50 + (conc - 50) * 0.5;
   } else if (conc <= 420) {
-    return 200 + ((conc - 350) * 1.4286);
+    return 200 + (conc - 350) * 1.4286;
   } else if (conc <= 500) {
-    return 300 + ((conc - 420) * 1.25);
+    return 300 + (conc - 420) * 1.25;
   } else {
     return 400 + (conc - 500);
   }
@@ -137,7 +137,7 @@ function calculatePM25Index(conc) {
 /**
  * Ozone Calculation (ppm)
  * Malaysian API uses different formulas for different ranges
- * 
+ *
  * Note: For real-time monitoring:
  * - Use 8-hour average for normal conditions
  * - Use 1-hour average for high pollution events
@@ -145,19 +145,19 @@ function calculatePM25Index(conc) {
 function calculateOzoneIndex(conc) {
   // Convert ppm to breakpoints
   // Malaysian API for O3 (8-hour average basis)
-  
+
   if (conc <= 0.1) {
     // 0-0.1 ppm → 0-100 API
     return conc * 1000;
   } else if (conc <= 0.2) {
     // 0.1-0.2 ppm → 100-200 API
-    return 100 + ((conc - 0.1) * 1000);
+    return 100 + (conc - 0.1) * 1000;
   } else if (conc <= 0.4) {
     // 0.2-0.4 ppm → 200-300 API
-    return 200 + ((conc - 0.2) * 500);
+    return 200 + (conc - 0.2) * 500;
   } else {
     // Above 0.4 ppm → 300+ API
-    return 300 + ((conc - 0.4) * 1000);
+    return 300 + (conc - 0.4) * 1000;
   }
 }
 
@@ -171,13 +171,13 @@ function calculateCOIndex(conc) {
     return conc * 11.111111;
   } else if (conc <= 15.0) {
     // 9-15 ppm → 100-200 API
-    return 100 + ((conc - 9.0) * 16.66667);
+    return 100 + (conc - 9.0) * 16.66667;
   } else if (conc <= 30.0) {
     // 15-30 ppm → 200-300 API
-    return 200 + ((conc - 15.0) * 6.66667);
+    return 200 + (conc - 15.0) * 6.66667;
   } else {
     // Above 30 ppm → 300+ API
-    return 300 + ((conc - 30.0) * 10);
+    return 300 + (conc - 30.0) * 10;
   }
 }
 
@@ -191,13 +191,13 @@ function calculateNO2Index(conc) {
     return conc * 588.23529;
   } else if (conc <= 0.6) {
     // 0.17-0.6 ppm → 100-200 API
-    return 100 + ((conc - 0.17) * 232.56);
+    return 100 + (conc - 0.17) * 232.56;
   } else if (conc <= 1.2) {
     // 0.6-1.2 ppm → 200-300 API
-    return 200 + ((conc - 0.6) * 166.667);
+    return 200 + (conc - 0.6) * 166.667;
   } else {
     // Above 1.2 ppm → 300+ API
-    return 300 + ((conc - 1.2) * 250);
+    return 300 + (conc - 1.2) * 250;
   }
 }
 
@@ -211,13 +211,13 @@ function calculateSO2Index(conc) {
     return conc * 2500;
   } else if (conc <= 0.3) {
     // 0.04-0.3 ppm → 100-200 API
-    return 100 + ((conc - 0.04) * 384.61);
+    return 100 + (conc - 0.04) * 384.61;
   } else if (conc <= 0.6) {
     // 0.3-0.6 ppm → 200-300 API
-    return 200 + ((conc - 0.3) * 333.333);
+    return 200 + (conc - 0.3) * 333.333;
   } else {
     // Above 0.6 ppm → 300+ API
-    return 300 + ((conc - 0.6) * 500);
+    return 300 + (conc - 0.6) * 500;
   }
 }
 
@@ -246,20 +246,23 @@ function hasValue(val) {
  */
 function getHealthAdvice(api) {
   const status = getApiStatus(api);
-  
+
   const advice = {
-    'Good': 'Air quality is good. No restrictions for outdoor activities.',
-    'Moderate': 'Air quality is acceptable. No restrictions for outdoor activities.',
-    'Unhealthy': 'Unhealthy for sensitive groups. Limit prolonged outdoor activities for elderly, pregnant women, children and those with heart/lung conditions.',
-    'Very Unhealthy': 'Unhealthy for everyone. Reduce physical activities. High risk groups should stay indoors.',
-    'Hazardous': 'Health alert: everyone may experience serious health effects. Avoid all outdoor activities.',
-    'Emergency': 'Health emergency: Follow National Security Council instructions. Stay indoors.'
+    Good: 'Air quality is good. No restrictions for outdoor activities.',
+    Moderate: 'Air quality is acceptable. No restrictions for outdoor activities.',
+    Unhealthy:
+      'Unhealthy for sensitive groups. Limit prolonged outdoor activities for elderly, pregnant women, children and those with heart/lung conditions.',
+    'Very Unhealthy':
+      'Unhealthy for everyone. Reduce physical activities. High risk groups should stay indoors.',
+    Hazardous:
+      'Health alert: everyone may experience serious health effects. Avoid all outdoor activities.',
+    Emergency: 'Health emergency: Follow National Security Council instructions. Stay indoors.',
   };
-  
+
   return {
     status,
     advice: advice[status] || 'No data available',
-    apiValue: Math.round(api)
+    apiValue: Math.round(api),
   };
 }
 
@@ -288,5 +291,5 @@ module.exports = {
   getApiStatus,
   getHealthAdvice,
   ppbToPpm,
-  ppmToPpb
+  ppmToPpb,
 };

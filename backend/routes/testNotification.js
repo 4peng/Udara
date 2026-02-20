@@ -23,10 +23,10 @@ router.post('/send', async (req, res) => {
   }
 
   try {
-    const user = await User.findOne({ 
-      $or: [{ userId: userId }, { clerkUserId: userId }] 
+    const user = await User.findOne({
+      $or: [{ userId: userId }, { clerkUserId: userId }],
     });
-    
+
     if (!user || !user.pushTokens || user.pushTokens.length === 0) {
       return res.status(404).json({ error: 'User has no registered push tokens' });
     }
@@ -48,12 +48,12 @@ router.post('/send', async (req, res) => {
     }
 
     if (messages.length === 0) {
-        return res.status(400).json({ error: "No valid tokens found" });
+      return res.status(400).json({ error: 'No valid tokens found' });
     }
 
     const chunks = expo.chunkPushNotifications(messages);
     const tickets = [];
-    
+
     for (let chunk of chunks) {
       try {
         const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
@@ -64,7 +64,6 @@ router.post('/send', async (req, res) => {
     }
 
     res.json({ success: true, tickets });
-
   } catch (error) {
     console.error('Error sending notification:', error);
     res.status(500).json({ error: error.message });

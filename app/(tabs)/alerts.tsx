@@ -5,6 +5,7 @@ import { useState, useCallback } from "react"
 import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View, RefreshControl } from "react-native"
 import { router } from "expo-router"
 import { getAQIColor, getAQIStatus, SIMPLE_AQI_CATEGORIES } from "../../utils/aqiUtils"
+import { getRelativeDateLabelMYT } from "../../utils/timeUtils"
 import { useNotificationContext, UINotification } from "../../context/NotificationContext"
 import { ROUTES } from "../../constants/Routes"
 
@@ -26,25 +27,10 @@ export default function AlertsScreen() {
     return notifications.filter((alert) => alert.level === selectedFilter)
   }
 
-  const getRelativeDateLabel = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const yesterday = new Date(now);
-    yesterday.setDate(yesterday.getDate() - 1);
-    
-    if (date.toDateString() === now.toDateString()) {
-      return "Today";
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      return "Yesterday";
-    } else {
-      return date.toLocaleDateString();
-    }
-  };
-
   const groupAlertsByDate = (alerts: UINotification[]) => {
     const grouped: { [key: string]: UINotification[] } = {}
     alerts.forEach((alert) => {
-      const dateLabel = getRelativeDateLabel(alert.rawDate);
+      const dateLabel = getRelativeDateLabelMYT(alert.rawDate);
       if (!grouped[dateLabel]) {
         grouped[dateLabel] = []
       }

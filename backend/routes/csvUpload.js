@@ -18,7 +18,7 @@ const upload = multer({
     } else {
       cb(new Error('Only CSV files are allowed'), false);
     }
-  }
+  },
 });
 
 // POST /api/csv-upload/preview
@@ -35,7 +35,8 @@ router.post('/preview', upload.single('file'), async (req, res) => {
     stream
       .pipe(csv())
       .on('data', (data) => {
-        if (results.length < 10) { // Only preview first 10 rows
+        if (results.length < 10) {
+          // Only preview first 10 rows
           results.push(data);
         }
       })
@@ -44,13 +45,12 @@ router.post('/preview', upload.single('file'), async (req, res) => {
           success: true,
           preview: results,
           totalRows: results.length,
-          columns: results.length > 0 ? Object.keys(results[0]) : []
+          columns: results.length > 0 ? Object.keys(results[0]) : [],
         });
       })
       .on('error', (error) => {
         res.status(500).json({ error: 'Failed to parse CSV', message: error.message });
       });
-
   } catch (error) {
     console.error('CSV preview error:', error);
     res.status(500).json({ error: 'Failed to preview CSV', message: error.message });
@@ -100,21 +100,21 @@ router.post('/upload', upload.single('file'), async (req, res) => {
             topic: `csv_upload/${deviceId}`,
             timestamp_server: new Date(),
             timestamp_device: row.Timestamp,
-            location: location || 'Unknown'
+            location: location || 'Unknown',
           },
-          
+
           // Environmental data (BME280)
           temperature_c: parseFloat(row.Temperature_C),
           pressure_hpa: parseFloat(row.Pressure_hPa),
           humidity_pct: parseFloat(row.Humidity_Pct),
-          
+
           // Particulate matter (PMS5003)
           pm1_0: parseInt(row.PM1_0),
           pm2_5: parseInt(row.PM2_5),
           pm10: parseInt(row.PM10),
           particles_0_3um: parseInt(row.Particles_0_3um),
           particles_2_5um: parseInt(row.Particles_2_5um),
-          
+
           // Alphasense gas sensors
           alphasense_voltages: {
             SN4_AE_V: parseFloat(row.SN4_AE_V),
@@ -126,14 +126,13 @@ router.post('/upload', upload.single('file'), async (req, res) => {
             SN1_AE_V: parseFloat(row.SN1_AE_V),
             SN1_WE_V: parseFloat(row.SN1_WE_V),
             Pt1000_Pos_V: parseFloat(row.Pt1000_Pos_V),
-            Pt1000_Neg_V: parseFloat(row.Pt1000_Neg_V)
-          }
+            Pt1000_Neg_V: parseFloat(row.Pt1000_Neg_V),
+          },
         };
 
         // Try to insert (will fail if duplicate due to unique index)
         await SensorReading.create(document);
         inserted++;
-
       } catch (error) {
         if (error.code === 11000) {
           // Duplicate key error
@@ -143,7 +142,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
           errors.push({
             row: index + 1,
             timestamp: row.Timestamp,
-            error: error.message
+            error: error.message,
           });
         }
       }
@@ -156,19 +155,18 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         total: results.length,
         inserted,
         duplicates,
-        failed
+        failed,
       },
       errors: errors.slice(0, 10), // Return first 10 errors only
       deviceId,
-      deviceName
+      deviceName,
     });
-
   } catch (error) {
     console.error('CSV upload error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      error: 'Failed to upload CSV', 
-      message: error.message 
+      error: 'Failed to upload CSV',
+      message: error.message,
     });
   }
 });
@@ -200,7 +198,7 @@ router.post('/validate', upload.single('file'), async (req, res) => {
       'SN1_AE_V',
       'SN1_WE_V',
       'Pt1000_Pos_V',
-      'Pt1000_Neg_V'
+      'Pt1000_Neg_V',
     ];
 
     const results = [];
@@ -221,13 +219,13 @@ router.post('/validate', upload.single('file'), async (req, res) => {
     if (results.length === 0) {
       return res.status(400).json({
         success: false,
-        error: 'CSV file is empty or invalid'
+        error: 'CSV file is empty or invalid',
       });
     }
 
     const actualColumns = Object.keys(results[0]);
-    const missingColumns = requiredColumns.filter(col => !actualColumns.includes(col));
-    const extraColumns = actualColumns.filter(col => !requiredColumns.includes(col));
+    const missingColumns = requiredColumns.filter((col) => !actualColumns.includes(col));
+    const extraColumns = actualColumns.filter((col) => !requiredColumns.includes(col));
 
     const isValid = missingColumns.length === 0;
 
@@ -238,9 +236,8 @@ router.post('/validate', upload.single('file'), async (req, res) => {
       actualColumns,
       missingColumns,
       extraColumns,
-      sampleData: results
+      sampleData: results,
     });
-
   } catch (error) {
     console.error('CSV validation error:', error);
     res.status(500).json({ error: 'Failed to validate CSV', message: error.message });

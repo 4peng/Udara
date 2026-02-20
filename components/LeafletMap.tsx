@@ -6,6 +6,7 @@ interface Sensor {
   id: string;
   name: string;
   aqi: number;
+  isMonitored?: boolean;
   coordinates: {
     latitude: number;
     longitude: number;
@@ -85,12 +86,13 @@ export default function LeafletMap({ sensors, onSensorPress, style }: LeafletMap
               sensorsData.forEach(function(sensor) {
                 if (sensor.coordinates && sensor.coordinates.latitude && sensor.coordinates.longitude) {
                   var color = getAQIColor(sensor.aqi);
+                  var isMonitored = !!sensor.isMonitored;
                   
                   var marker = L.circleMarker([sensor.coordinates.latitude, sensor.coordinates.longitude], {
-                    radius: 12,
+                    radius: isMonitored ? 14 : 12,
                     fillColor: color,
-                    color: "#fff",
-                    weight: 2,
+                    color: isMonitored ? "#4361EE" : "#fff",
+                    weight: isMonitored ? 4 : 2,
                     opacity: 1,
                     fillOpacity: 0.8
                   }).addTo(map);

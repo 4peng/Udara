@@ -6,6 +6,7 @@ import * as Notifications from 'expo-notifications';
 import { useAuth } from '../hooks/useAuth';
 import { API_CONFIG, apiRequest, buildApiUrl } from '../config/api';
 import { STORAGE_KEYS } from '../constants/StorageKeys';
+import { formatTimeMYT } from '../utils/timeUtils';
 
 export interface UINotification {
   id: string;
@@ -102,7 +103,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
            return {
              id: n.notificationId || n._id || Math.random().toString(),
-             time: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+             time: formatTimeMYT(date),
              location: n.content?.subject || n.message || "Alert", 
              aqi: aqi,
              level: getAQIStatus(aqi),
@@ -177,7 +178,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     
     const newNotif: UINotification = {
       id: notif.request.identifier,
-      time: notifDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      time: formatTimeMYT(notifDate),
       location: (data.location as string) || (data.deviceId as string) || "Alert",
       aqi: aqi,
       level: getAQIStatus(aqi),

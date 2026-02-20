@@ -1,4 +1,4 @@
-# GEMINI.md - Udara Project Context (Updated Jan 2026)
+# GEMINI.md - Udara Project Context (Updated Feb 2026)
 
 ## Project Overview
 **Udara** is an Air Quality Monitoring system featuring a React Native mobile app and a Node.js/Express backend. The system provides real-time AQI tracking, pollutant analysis, and instant threshold-based alerts.
@@ -11,6 +11,8 @@
 *   **Auth:** Firebase Auth with `@react-native-google-signin/google-signin` for native compliance.
 *   **Persistence:** `AsyncStorage` for session persistence (no more forced re-logins).
 *   **Notifications:** `expo-notifications` with backend registration and local/remote handling.
+*   **Connectivity:** `@react-native-community/netinfo` for offline detection and `OfflineBanner` UI.
+*   **State Management:** React Context API for `Connectivity`, `Monitoring`, and `Notifications`.
 
 ### Backend (API Service)
 *   **Environment:** Persistent Node.js Server (Deployed on **Render**).
@@ -18,21 +20,24 @@
 *   **Real-time Engine:** **MongoDB Change Streams** integrated in `backend/jobs/realtimeMonitor.js`.
     *   Listens for new insertions in `sensor_data_readings`.
     *   Instantly matches data against User `subscriptions`.
-    *   Triggers Push Notifications via `expo-server-sdk`.
+    *   Triggers Consolidated Push Notifications via `expo-server-sdk`.
+*   **Data Management:** CSV bulk upload with validation and preview capabilities.
 
 ## Recent Improvements & Fixes
-*   **Native Auth:** Migrated from web-based `expo-auth-session` to native Google Sign-In to resolve security blocking and redirect issues.
-*   **Session Persistence:** Fixed the bug where users were logged out on app restart by configuring `AsyncStorage` persistence in Firebase.
-*   **Real-time Alerts:** Implemented a non-polling trigger system using MongoDB Change Streams. Alerts are now sub-second latency.
-*   **Stability:** Resolved duplicate token registration calls and "400 Bad Request" race conditions in the frontend hooks.
-*   **Deployment:** Successfully migrated backend from Vercel (Serverless) to Render (Persistent) to support background listeners.
+*   **Consolidated Alerts:** The realtime monitor now groups multiple pollutant violations into a single "AQI Alert" to prevent notification fatigue.
+*   **CSV Bulk Upload:** Implemented `csv-upload` routes in the backend for efficient data ingestion from external sources.
+*   **Offline Resilience:** Added a `ConnectivityProvider` and `OfflineBanner` to gracefully handle network interruptions.
+*   **Monitoring Areas:** Introduced location-based monitoring areas in the frontend (`useDevicesWithMonitoring`) for better user control over which sensors trigger alerts.
+*   **System Logging:** Added dedicated logging routes and models to track device status and system events.
 
 ## Key File Locations
 *   `backend/api/index.js`: Main entry point (Render-compatible).
 *   `backend/jobs/realtimeMonitor.js`: The "Engine" for real-time notifications.
-*   `backend/scripts/simulateBadAir.js`: Test script for injecting hazardous data.
+*   `backend/routes/csvUpload.js`: Routes for CSV data management.
+*   `context/ConnectivityContext.tsx`: Global connectivity state.
+*   `context/MonitoringContext.tsx`: Manages active monitoring areas.
+*   `hooks/useDevicesWithMonitoring.ts`: Hook for managing devices within monitored areas.
 *   `hooks/usePushNotifications.ts`: Centralized, robust hook for notification handling.
-*   `config/firebase.ts`: Firebase initialization with persistence.
 
 ## Development Workflow
 
@@ -51,7 +56,13 @@ npx expo run:android
 npx expo run:ios
 ```
 
-### 3. Testing Alerts
+### 3. Setup Mock Devices
+```bash
+cd backend
+node scripts/registerDevices.js
+```
+
+### 4. Testing Alerts
 Use the simulation script to trigger an alert for `Device_B`:
 ```bash
 cd backend

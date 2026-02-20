@@ -12,20 +12,20 @@ router.get('/:userId/notifications', async (req, res) => {
     const { limit = 50, skip = 0, unreadOnly = false } = req.query;
 
     // Resolve User First (Handle Firebase UID vs Internal ID)
-    const user = await User.findOne({ 
-        $or: [{ userId: userId }, { clerkUserId: userId }] 
+    const user = await User.findOne({
+      $or: [{ userId: userId }, { clerkUserId: userId }],
     });
 
     if (!user) {
-        return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: 'User not found' });
     }
-    
+
     // Use the resolved internal userId for querying notifications
     const targetUserId = user.userId;
 
     // Build query
     const query = { 'recipients.userId': targetUserId };
-    
+
     if (unreadOnly === 'true') {
       query['recipients.readAt'] = null;
     }
@@ -39,11 +39,11 @@ router.get('/:userId/notifications', async (req, res) => {
 
     // Get total count
     const totalCount = await Notification.countDocuments(query);
-    
+
     // Get unread count
     const unreadCount = await Notification.countDocuments({
       'recipients.userId': targetUserId,
-      'recipients.readAt': null
+      'recipients.readAt': null,
     });
 
     // Also get notifications from user's recentNotifications array (in-app)
@@ -52,19 +52,19 @@ router.get('/:userId/notifications', async (req, res) => {
 
     // Combine and deduplicate
     const allNotifications = [
-      ...notifications.map(notif => ({
+      ...notifications.map((notif) => ({
         ...notif,
-        source: 'notifications_collection'
+        source: 'notifications_collection',
       })),
-      ...inAppNotifications.map(notif => ({
+      ...inAppNotifications.map((notif) => ({
         ...notif,
-        source: 'user_profile'
-      }))
+        source: 'user_profile',
+      })),
     ];
 
     // Remove duplicates based on notificationId
     const uniqueNotifications = Array.from(
-      new Map(allNotifications.map(n => [n.notificationId, n])).values()
+      new Map(allNotifications.map((n) => [n.notificationId, n])).values()
     );
 
     // Sort by sentAt/createdAt
@@ -81,17 +81,16 @@ router.get('/:userId/notifications', async (req, res) => {
         total: totalCount,
         limit: parseInt(limit),
         skip: parseInt(skip),
-        hasMore: parseInt(skip) + notifications.length < totalCount
+        hasMore: parseInt(skip) + notifications.length < totalCount,
       },
-      unreadCount
+      unreadCount,
     });
-
   } catch (error) {
     console.error('Error fetching notifications:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch notifications',
-      message: error.message
+      message: error.message,
     });
   }
 });
@@ -104,19 +103,18 @@ router.get('/:userId/notifications/unread-count', async (req, res) => {
 
     const unreadCount = await Notification.countDocuments({
       'recipients.userId': userId,
-      'recipients.readAt': null
+      'recipients.readAt': null,
     });
 
     res.json({
       success: true,
-      unreadCount
+      unreadCount,
     });
-
   } catch (error) {
     console.error('Error getting unread count:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to get unread count'
+      error: 'Failed to get unread count',
     });
   }
 });
@@ -131,12 +129,12 @@ router.patch('/:userId/notifications/:notificationId/read', async (req, res) => 
     await Notification.updateOne(
       {
         notificationId: notificationId,
-        'recipients.userId': userId
+        'recipients.userId': userId,
       },
       {
         $set: {
-          'recipients.$.readAt': new Date()
-        }
+          'recipients.$.readAt': new Date(),
+        },
       }
     );
 
@@ -144,26 +142,25 @@ router.patch('/:userId/notifications/:notificationId/read', async (req, res) => 
     await User.updateOne(
       {
         userId: userId,
-        'recentNotifications.notificationId': notificationId
+        'recentNotifications.notificationId': notificationId,
       },
       {
         $set: {
           'recentNotifications.$.read': true,
-          'recentNotifications.$.readAt': new Date()
-        }
+          'recentNotifications.$.readAt': new Date(),
+        },
       }
     );
 
     res.json({
       success: true,
-      message: 'Notification marked as read'
+      message: 'Notification marked as read',
     });
-
   } catch (error) {
     console.error('Error marking notification as read:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to mark notification as read'
+      error: 'Failed to mark notification as read',
     });
   }
 });
@@ -178,12 +175,12 @@ router.patch('/:userId/notifications/mark-all-read', async (req, res) => {
     await Notification.updateMany(
       {
         'recipients.userId': userId,
-        'recipients.readAt': null
+        'recipients.readAt': null,
       },
       {
         $set: {
-          'recipients.$.readAt': new Date()
-        }
+          'recipients.$.readAt': new Date(),
+        },
       }
     );
 
@@ -193,24 +190,23 @@ router.patch('/:userId/notifications/mark-all-read', async (req, res) => {
       {
         $set: {
           'recentNotifications.$[elem].read': true,
-          'recentNotifications.$[elem].readAt': new Date()
-        }
+          'recentNotifications.$[elem].readAt': new Date(),
+        },
       },
       {
-        arrayFilters: [{ 'elem.read': false }]
+        arrayFilters: [{ 'elem.read': false }],
       }
     );
 
     res.json({
       success: true,
-      message: 'All notifications marked as read'
+      message: 'All notifications marked as read',
     });
-
   } catch (error) {
     console.error('Error marking all as read:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to mark all as read'
+      error: 'Failed to mark all as read',
     });
   }
 });
@@ -222,37 +218,33 @@ router.delete('/:userId/notifications', async (req, res) => {
     const { userId } = req.params;
 
     // Resolve User First
-    const user = await User.findOne({ 
-        $or: [{ userId: userId }, { clerkUserId: userId }] 
+    const user = await User.findOne({
+      $or: [{ userId: userId }, { clerkUserId: userId }],
     });
 
     if (!user) {
-        return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: 'User not found' });
     }
-    
+
     const targetUserId = user.userId;
 
     // 1. Delete from Notifications Collection
     await Notification.deleteMany({
-      'recipients.userId': targetUserId
+      'recipients.userId': targetUserId,
     });
 
     // 2. Clear from User Profile (recentNotifications)
-    await User.updateOne(
-      { userId: targetUserId },
-      { $set: { recentNotifications: [] } }
-    );
+    await User.updateOne({ userId: targetUserId }, { $set: { recentNotifications: [] } });
 
     res.json({
       success: true,
-      message: 'All notifications deleted'
+      message: 'All notifications deleted',
     });
-
   } catch (error) {
     console.error('Error deleting all notifications:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to delete all notifications'
+      error: 'Failed to delete all notifications',
     });
   }
 });
@@ -266,7 +258,7 @@ router.delete('/:userId/notifications/:notificationId', async (req, res) => {
     // Remove from notifications collection
     await Notification.deleteOne({
       notificationId: notificationId,
-      'recipients.userId': userId
+      'recipients.userId': userId,
     });
 
     // Remove from user's recentNotifications
@@ -274,21 +266,20 @@ router.delete('/:userId/notifications/:notificationId', async (req, res) => {
       { userId: userId },
       {
         $pull: {
-          recentNotifications: { notificationId: notificationId }
-        }
+          recentNotifications: { notificationId: notificationId },
+        },
       }
     );
 
     res.json({
       success: true,
-      message: 'Notification deleted'
+      message: 'Notification deleted',
     });
-
   } catch (error) {
     console.error('Error deleting notification:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to delete notification'
+      error: 'Failed to delete notification',
     });
   }
 });
@@ -302,23 +293,22 @@ router.get('/:userId/notifications/by-device/:deviceId', async (req, res) => {
 
     const notifications = await Notification.find({
       'recipients.userId': userId,
-      'trigger.deviceId': deviceId
+      'trigger.deviceId': deviceId,
     })
-    .sort({ createdAt: -1 })
-    .limit(parseInt(limit))
-    .lean();
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .lean();
 
     res.json({
       success: true,
       notifications,
-      deviceId
+      deviceId,
     });
-
   } catch (error) {
     console.error('Error fetching device notifications:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch device notifications'
+      error: 'Failed to fetch device notifications',
     });
   }
 });
@@ -362,8 +352,8 @@ router.post('/subscribe', async (req, res) => {
 
   try {
     // Find user by either internal userId OR Auth Provider ID (clerkUserId)
-    const user = await User.findOne({ 
-        $or: [{ userId: userId }, { clerkUserId: userId }] 
+    const user = await User.findOne({
+      $or: [{ userId: userId }, { clerkUserId: userId }],
     });
 
     if (!user) return res.status(404).json({ error: 'User not found' });
@@ -388,10 +378,10 @@ router.post('/unsubscribe', async (req, res) => {
   }
 
   try {
-    const user = await User.findOne({ 
-        $or: [{ userId: userId }, { clerkUserId: userId }] 
+    const user = await User.findOne({
+      $or: [{ userId: userId }, { clerkUserId: userId }],
     });
-    
+
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     user.unsubscribeFromDevice(deviceId);
@@ -410,13 +400,13 @@ router.get('/subscriptions/:userId', async (req, res) => {
   const { userId } = req.params;
 
   try {
-    const user = await User.findOne({ 
-        $or: [{ userId: userId }, { clerkUserId: userId }] 
+    const user = await User.findOne({
+      $or: [{ userId: userId }, { clerkUserId: userId }],
     });
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     // Return only active subscriptions
-    const subscriptions = user.subscriptions.filter(sub => sub.isActive);
+    const subscriptions = user.subscriptions.filter((sub) => sub.isActive);
 
     res.json({ success: true, subscriptions });
   } catch (error) {

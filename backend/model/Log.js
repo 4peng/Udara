@@ -1,16 +1,16 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const logSchema = new mongoose.Schema(
   {
     log_type: {
       type: String,
       required: true,
-      default: "info",
+      default: 'info',
     },
     category: {
       type: String,
       required: true,
-      default: "system",
+      default: 'system',
     },
     title: {
       type: String,
@@ -27,13 +27,13 @@ const logSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["active", "resolved", "investigating", "closed"],
-      default: "active",
+      enum: ['active', 'resolved', 'investigating', 'closed'],
+      default: 'active',
     },
     severity: {
       type: String,
-      enum: ["info", "low", "medium", "high", "critical"],
-      default: "info",
+      enum: ['info', 'low', 'medium', 'high', 'critical'],
+      default: 'info',
     },
     device_id: {
       type: String,
@@ -71,7 +71,7 @@ const logSchema = new mongoose.Schema(
     },
   },
   {
-    collection: "device_logs",
+    collection: 'device_logs',
     timestamps: { createdAt: false, updatedAt: false }, // We manage timestamps manually or via defaults
   }
 );
@@ -82,4 +82,4 @@ logSchema.index({ device_id: 1 });
 logSchema.index({ status: 1 });
 logSchema.index({ severity: 1 });
 
-module.exports = mongoose.model("Log", logSchema);
+module.exports = mongoose.model('Log', logSchema);

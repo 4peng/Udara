@@ -21,6 +21,7 @@ import LeafletMap from "../../components/LeafletMap"
 import { useDevicesWithMonitoring } from "../../hooks/useDevicesWithMonitoring"
 import { getAQIColor, getAQIStatus, SIMPLE_AQI_CATEGORIES } from "../../utils/aqiUtils"
 import { getComfortLevel, getComfortLevelColor } from "../../utils/environmentalUtils"
+import { formatDateMYT, formatTimeMYT } from "../../utils/timeUtils"
 import { ROUTES } from "../../constants/Routes"
 import { TIME } from "../../constants/Time"
 import { LAYOUT } from "../../constants/Layout"
@@ -84,14 +85,7 @@ export default function HomeScreen() {
   // Initialize current date
   useEffect(() => {
     const updateDate = () => {
-      const date = new Date()
-      const options: Intl.DateTimeFormatOptions = {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      }
-      setCurrentDate(date.toLocaleDateString("en-US", options))
+      setCurrentDate(formatDateMYT(new Date()))
     }
 
     updateDate()
@@ -518,14 +512,10 @@ export default function HomeScreen() {
       {/* Last Updated Status */}
       <View style={styles.refreshStatus}>
         <Text style={styles.lastRefreshText}>
-          Last updated: {apiLastUpdated.toLocaleTimeString("en-US", {
-            hour: "2-digit",
-            minute: "2-digit",
-            timeZone: "Asia/Kuala_Lumpur",
-            hour12: true
-          })}
+          Last updated: {formatTimeMYT(apiLastUpdated)}
         </Text>
       </View>
+
 
       {/* Debug Info */}
       {DEBUG_MODE && showDebugInfo && (

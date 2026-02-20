@@ -5,10 +5,16 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { NotificationProvider } from '../context/NotificationContext';
-import { MonitoringProvider } from '../context/MonitoringContext';
-import { ConnectivityProvider } from '../context/ConnectivityContext';
 import OfflineBanner from '../components/OfflineBanner';
+import { ConnectivityProvider } from '../context/ConnectivityContext';
+import { MonitoringProvider } from '../context/MonitoringContext';
+import { NotificationProvider } from '../context/NotificationContext';
+import { usePushNotifications } from '../hooks/usePushNotifications';
+
+function PushNotificationRegistrar() {
+  usePushNotifications();
+  return null;
+}
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -25,6 +31,7 @@ export default function RootLayout() {
     <ConnectivityProvider>
       <NotificationProvider>
         <MonitoringProvider>
+          <PushNotificationRegistrar />
           <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
             <OfflineBanner />
             <Stack>

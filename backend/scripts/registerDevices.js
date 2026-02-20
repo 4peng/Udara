@@ -1,25 +1,29 @@
 // scripts/registerDevices.js
+process.env.TZ = 'Asia/Kuala_Lumpur';
 require('dotenv').config();
 const mongoose = require('mongoose');
 
 // Define Schema
-const deviceSchema = new mongoose.Schema({
-  deviceId: { type: String, required: true, unique: true },
-  name: String,
-  location: String,
-  isActive: { type: Boolean, default: true },
-  coordinates: {
-    latitude: Number,
-    longitude: Number
+const deviceSchema = new mongoose.Schema(
+  {
+    deviceId: { type: String, required: true, unique: true },
+    name: String,
+    location: String,
+    isActive: { type: Boolean, default: true },
+    coordinates: {
+      latitude: Number,
+      longitude: Number,
+    },
+    lastUpdated: Date,
   },
-  lastUpdated: Date
-}, { strict: false });
+  { strict: false }
+);
 
 const Device = mongoose.model('Device', deviceSchema);
 
 async function register() {
   try {
-    console.log("🔌 Connecting to MongoDB...");
+    console.log('🔌 Connecting to MongoDB...');
     await mongoose.connect(process.env.MONGODB_URI);
 
     const devices = [
@@ -28,15 +32,15 @@ async function register() {
         name: 'Main Campus Sensor',
         location: 'Universiti Malaya',
         isActive: true,
-        coordinates: { latitude: 3.1209, longitude: 101.6538 }
+        coordinates: { latitude: 3.1209, longitude: 101.6538 },
       },
       {
         deviceId: 'Device_B',
         name: 'Library Sensor',
         location: 'UM Library',
         isActive: true,
-        coordinates: { latitude: 3.1220, longitude: 101.6550 }
-      }
+        coordinates: { latitude: 3.122, longitude: 101.655 },
+      },
     ];
 
     for (const dev of devices) {
@@ -50,10 +54,9 @@ async function register() {
       }
     }
 
-    console.log("🎉 Devices registered successfully!");
-
+    console.log('🎉 Devices registered successfully!');
   } catch (error) {
-    console.error("❌ Error:", error);
+    console.error('❌ Error:', error);
   } finally {
     await mongoose.disconnect();
     process.exit();

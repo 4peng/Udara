@@ -1,7 +1,7 @@
 // routes/user.js - User Management Routes
-const express = require("express");
+const express = require('express');
 const router = express.Router();
-const User = require("../model/User");
+const User = require('../model/User');
 
 // ===================================
 // USER PROFILE ROUTES
@@ -13,13 +13,13 @@ const User = require("../model/User");
  * Required: clerkUserId, email, name
  * Optional: phone, location
  */
-router.post("/", async (req, res) => {
+router.post('/', async (req, res) => {
   const { clerkUserId, email, name, phone, location } = req.body;
 
   // Validation
   if (!clerkUserId || !email || !name) {
     return res.status(400).json({
-      error: "Missing required fields: clerkUserId, email, and name are required",
+      error: 'Missing required fields: clerkUserId, email, and name are required',
     });
   }
 
@@ -37,7 +37,7 @@ router.post("/", async (req, res) => {
 
       return res.status(200).json({
         success: true,
-        message: "User profile updated",
+        message: 'User profile updated',
         user: {
           userId: user.userId,
           clerkUserId: user.clerkUserId,
@@ -64,7 +64,7 @@ router.post("/", async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: "User profile created successfully",
+      message: 'User profile created successfully',
       user: {
         userId: user.userId,
         clerkUserId: user.clerkUserId,
@@ -77,16 +77,16 @@ router.post("/", async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error creating/updating user:", error);
+    console.error('Error creating/updating user:', error);
 
     if (error.code === 11000) {
       // Duplicate key error
       return res.status(409).json({
-        error: "User with this email or clerkUserId already exists",
+        error: 'User with this email or clerkUserId already exists',
       });
     }
 
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -94,14 +94,14 @@ router.post("/", async (req, res) => {
  * GET /api/user/:clerkUserId
  * Get user profile by Clerk ID
  */
-router.get("/:clerkUserId", async (req, res) => {
+router.get('/:clerkUserId', async (req, res) => {
   const { clerkUserId } = req.params;
 
   try {
     const user = await User.findOne({ clerkUserId });
 
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: 'User not found' });
     }
 
     res.status(200).json({
@@ -122,8 +122,8 @@ router.get("/:clerkUserId", async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error fetching user:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error('Error fetching user:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -131,7 +131,7 @@ router.get("/:clerkUserId", async (req, res) => {
  * PATCH /api/user/:clerkUserId
  * Update user profile information
  */
-router.patch("/:clerkUserId", async (req, res) => {
+router.patch('/:clerkUserId', async (req, res) => {
   const { clerkUserId } = req.params;
   const { name, phone, location } = req.body;
 
@@ -139,7 +139,7 @@ router.patch("/:clerkUserId", async (req, res) => {
     const user = await User.findOne({ clerkUserId });
 
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: 'User not found' });
     }
 
     // Update fields if provided
@@ -151,7 +151,7 @@ router.patch("/:clerkUserId", async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "User profile updated",
+      message: 'User profile updated',
       user: {
         userId: user.userId,
         clerkUserId: user.clerkUserId,
@@ -163,8 +163,8 @@ router.patch("/:clerkUserId", async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error updating user:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error('Error updating user:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -172,14 +172,14 @@ router.patch("/:clerkUserId", async (req, res) => {
  * DELETE /api/user/:clerkUserId
  * Soft delete user (set isActive to false)
  */
-router.delete("/:clerkUserId", async (req, res) => {
+router.delete('/:clerkUserId', async (req, res) => {
   const { clerkUserId } = req.params;
 
   try {
     const user = await User.findOne({ clerkUserId });
 
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: 'User not found' });
     }
 
     user.isActive = false;
@@ -187,11 +187,11 @@ router.delete("/:clerkUserId", async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "User account deactivated",
+      message: 'User account deactivated',
     });
   } catch (error) {
-    console.error("Error deleting user:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error('Error deleting user:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -204,19 +204,19 @@ router.delete("/:clerkUserId", async (req, res) => {
  * Subscribe user to a device
  * Body: { deviceId, deviceName }
  */
-router.post("/:clerkUserId/subscribe", async (req, res) => {
+router.post('/:clerkUserId/subscribe', async (req, res) => {
   const { clerkUserId } = req.params;
   const { deviceId, deviceName } = req.body;
 
   if (!deviceId) {
-    return res.status(400).json({ error: "deviceId is required" });
+    return res.status(400).json({ error: 'deviceId is required' });
   }
 
   try {
     const user = await User.findOne({ clerkUserId });
 
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: 'User not found' });
     }
 
     // Use the model's instance method
@@ -229,8 +229,8 @@ router.post("/:clerkUserId/subscribe", async (req, res) => {
       subscription,
     });
   } catch (error) {
-    console.error("Error subscribing to device:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error('Error subscribing to device:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -238,14 +238,14 @@ router.post("/:clerkUserId/subscribe", async (req, res) => {
  * DELETE /api/user/:clerkUserId/subscribe/:deviceId
  * Unsubscribe user from a device
  */
-router.delete("/:clerkUserId/subscribe/:deviceId", async (req, res) => {
+router.delete('/:clerkUserId/subscribe/:deviceId', async (req, res) => {
   const { clerkUserId, deviceId } = req.params;
 
   try {
     const user = await User.findOne({ clerkUserId });
 
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: 'User not found' });
     }
 
     user.unsubscribeFromDevice(deviceId);
@@ -256,8 +256,8 @@ router.delete("/:clerkUserId/subscribe/:deviceId", async (req, res) => {
       message: `Unsubscribed from device ${deviceId}`,
     });
   } catch (error) {
-    console.error("Error unsubscribing from device:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error('Error unsubscribing from device:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -265,14 +265,14 @@ router.delete("/:clerkUserId/subscribe/:deviceId", async (req, res) => {
  * GET /api/user/:clerkUserId/subscriptions
  * Get all device subscriptions for a user
  */
-router.get("/:clerkUserId/subscriptions", async (req, res) => {
+router.get('/:clerkUserId/subscriptions', async (req, res) => {
   const { clerkUserId } = req.params;
 
   try {
     const user = await User.findOne({ clerkUserId });
 
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: 'User not found' });
     }
 
     res.status(200).json({
@@ -280,8 +280,8 @@ router.get("/:clerkUserId/subscriptions", async (req, res) => {
       subscriptions: user.subscriptions,
     });
   } catch (error) {
-    console.error("Error fetching subscriptions:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error('Error fetching subscriptions:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -293,14 +293,14 @@ router.get("/:clerkUserId/subscriptions", async (req, res) => {
  * GET /api/user/:clerkUserId/thresholds/:deviceId
  * Get threshold settings for a specific device
  */
-router.get("/:clerkUserId/thresholds/:deviceId", async (req, res) => {
+router.get('/:clerkUserId/thresholds/:deviceId', async (req, res) => {
   const { clerkUserId, deviceId } = req.params;
 
   try {
     const user = await User.findOne({ clerkUserId });
 
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: 'User not found' });
     }
 
     const subscription = user.subscriptions.find(
@@ -320,8 +320,8 @@ router.get("/:clerkUserId/thresholds/:deviceId", async (req, res) => {
       customThresholds: subscription.customThresholds,
     });
   } catch (error) {
-    console.error("Error fetching thresholds:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error('Error fetching thresholds:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -330,7 +330,7 @@ router.get("/:clerkUserId/thresholds/:deviceId", async (req, res) => {
  * Update threshold settings for a specific device
  * Body: { metric: 'pm2_5', enabled: true, warning: 40, critical: 80 }
  */
-router.patch("/:clerkUserId/thresholds/:deviceId", async (req, res) => {
+router.patch('/:clerkUserId/thresholds/:deviceId', async (req, res) => {
   const { clerkUserId, deviceId } = req.params;
   const updates = req.body; // { pm2_5: { warning: 40, critical: 80 }, ... }
 
@@ -338,7 +338,7 @@ router.patch("/:clerkUserId/thresholds/:deviceId", async (req, res) => {
     const user = await User.findOne({ clerkUserId });
 
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: 'User not found' });
     }
 
     const subscription = user.subscriptions.find(
@@ -362,12 +362,12 @@ router.patch("/:clerkUserId/thresholds/:deviceId", async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Thresholds updated successfully",
+      message: 'Thresholds updated successfully',
       customThresholds: subscription.customThresholds,
     });
   } catch (error) {
-    console.error("Error updating thresholds:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error('Error updating thresholds:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -375,14 +375,14 @@ router.patch("/:clerkUserId/thresholds/:deviceId", async (req, res) => {
  * PUT /api/user/:clerkUserId/thresholds/:deviceId/reset
  * Reset thresholds to default values for a specific device
  */
-router.put("/:clerkUserId/thresholds/:deviceId/reset", async (req, res) => {
+router.put('/:clerkUserId/thresholds/:deviceId/reset', async (req, res) => {
   const { clerkUserId, deviceId } = req.params;
 
   try {
     const user = await User.findOne({ clerkUserId });
 
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: 'User not found' });
     }
 
     const subscription = user.subscriptions.find(
@@ -401,48 +401,48 @@ router.put("/:clerkUserId/thresholds/:deviceId/reset", async (req, res) => {
         enabled: true,
         warning: 35,
         critical: 75,
-        unit: "µg/m³",
+        unit: 'µg/m³',
       },
       pm10: {
         enabled: true,
         warning: 50,
         critical: 150,
-        unit: "µg/m³",
+        unit: 'µg/m³',
       },
       o3: {
         enabled: true,
         warning: 100,
         critical: 160,
-        unit: "ppb",
+        unit: 'ppb',
       },
       no2: {
         enabled: true,
         warning: 100,
         critical: 200,
-        unit: "ppb",
+        unit: 'ppb',
       },
       so2: {
         enabled: true,
         warning: 150,
         critical: 350,
-        unit: "ppb",
+        unit: 'ppb',
       },
       co: {
         enabled: true,
         warning: 5,
         critical: 9.4,
-        unit: "ppm",
+        unit: 'ppm',
       },
       temperature_c: {
         enabled: false,
         min: 15,
         max: 40,
-        unit: "°C",
+        unit: '°C',
       },
       humidity_pct: {
         enabled: false,
         max: 85,
-        unit: "%",
+        unit: '%',
       },
     };
 
@@ -450,12 +450,12 @@ router.put("/:clerkUserId/thresholds/:deviceId/reset", async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Thresholds reset to default values",
+      message: 'Thresholds reset to default values',
       customThresholds: subscription.customThresholds,
     });
   } catch (error) {
-    console.error("Error resetting thresholds:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error('Error resetting thresholds:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -467,14 +467,14 @@ router.put("/:clerkUserId/thresholds/:deviceId/reset", async (req, res) => {
  * GET /api/user/:clerkUserId/notification-settings/:deviceId
  * Get notification settings for a specific device
  */
-router.get("/:clerkUserId/notification-settings/:deviceId", async (req, res) => {
+router.get('/:clerkUserId/notification-settings/:deviceId', async (req, res) => {
   const { clerkUserId, deviceId } = req.params;
 
   try {
     const user = await User.findOne({ clerkUserId });
 
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: 'User not found' });
     }
 
     const subscription = user.subscriptions.find(
@@ -493,8 +493,8 @@ router.get("/:clerkUserId/notification-settings/:deviceId", async (req, res) => 
       notificationSettings: subscription.notificationSettings,
     });
   } catch (error) {
-    console.error("Error fetching notification settings:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error('Error fetching notification settings:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -503,7 +503,7 @@ router.get("/:clerkUserId/notification-settings/:deviceId", async (req, res) => 
  * Update notification settings for a specific device
  * Body: { email: { enabled: true, quietHours: {...} }, inApp: { enabled: true } }
  */
-router.patch("/:clerkUserId/notification-settings/:deviceId", async (req, res) => {
+router.patch('/:clerkUserId/notification-settings/:deviceId', async (req, res) => {
   const { clerkUserId, deviceId } = req.params;
   const { email, inApp } = req.body;
 
@@ -511,7 +511,7 @@ router.patch("/:clerkUserId/notification-settings/:deviceId", async (req, res) =
     const user = await User.findOne({ clerkUserId });
 
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: 'User not found' });
     }
 
     const subscription = user.subscriptions.find(
@@ -536,12 +536,12 @@ router.patch("/:clerkUserId/notification-settings/:deviceId", async (req, res) =
 
     res.status(200).json({
       success: true,
-      message: "Notification settings updated",
+      message: 'Notification settings updated',
       notificationSettings: subscription.notificationSettings,
     });
   } catch (error) {
-    console.error("Error updating notification settings:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error('Error updating notification settings:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -554,21 +554,21 @@ router.patch("/:clerkUserId/notification-settings/:deviceId", async (req, res) =
  * Get recent notifications for a user
  * Query params: ?limit=50&unreadOnly=false
  */
-router.get("/:clerkUserId/notifications", async (req, res) => {
+router.get('/:clerkUserId/notifications', async (req, res) => {
   const { clerkUserId } = req.params;
-  const { limit = 50, unreadOnly = "false" } = req.query;
+  const { limit = 50, unreadOnly = 'false' } = req.query;
 
   try {
     const user = await User.findOne({ clerkUserId });
 
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: 'User not found' });
     }
 
     let notifications = user.recentNotifications;
 
     // Filter unread only if requested
-    if (unreadOnly === "true") {
+    if (unreadOnly === 'true') {
       notifications = notifications.filter((n) => !n.read);
     }
 
@@ -583,8 +583,8 @@ router.get("/:clerkUserId/notifications", async (req, res) => {
       notifications,
     });
   } catch (error) {
-    console.error("Error fetching notifications:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error('Error fetching notifications:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -592,14 +592,14 @@ router.get("/:clerkUserId/notifications", async (req, res) => {
  * PATCH /api/user/:clerkUserId/notifications/:notificationId/read
  * Mark a notification as read
  */
-router.patch("/:clerkUserId/notifications/:notificationId/read", async (req, res) => {
+router.patch('/:clerkUserId/notifications/:notificationId/read', async (req, res) => {
   const { clerkUserId, notificationId } = req.params;
 
   try {
     const user = await User.findOne({ clerkUserId });
 
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: 'User not found' });
     }
 
     user.markNotificationAsRead(notificationId);
@@ -607,11 +607,11 @@ router.patch("/:clerkUserId/notifications/:notificationId/read", async (req, res
 
     res.status(200).json({
       success: true,
-      message: "Notification marked as read",
+      message: 'Notification marked as read',
     });
   } catch (error) {
-    console.error("Error marking notification as read:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error('Error marking notification as read:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -619,14 +619,14 @@ router.patch("/:clerkUserId/notifications/:notificationId/read", async (req, res
  * PATCH /api/user/:clerkUserId/notifications/read-all
  * Mark all notifications as read
  */
-router.patch("/:clerkUserId/notifications/read-all", async (req, res) => {
+router.patch('/:clerkUserId/notifications/read-all', async (req, res) => {
   const { clerkUserId } = req.params;
 
   try {
     const user = await User.findOne({ clerkUserId });
 
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: 'User not found' });
     }
 
     user.markAllNotificationsAsRead();
@@ -634,11 +634,11 @@ router.patch("/:clerkUserId/notifications/read-all", async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "All notifications marked as read",
+      message: 'All notifications marked as read',
     });
   } catch (error) {
-    console.error("Error marking all notifications as read:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error('Error marking all notifications as read:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -651,16 +651,16 @@ router.patch("/:clerkUserId/notifications/read-all", async (req, res) => {
  * Get all users (admin only)
  * Query params: ?role=user&isActive=true
  */
-router.get("/admin/all", async (req, res) => {
+router.get('/admin/all', async (req, res) => {
   const { role, isActive } = req.query;
 
   try {
     const query = {};
     if (role) query.role = role;
-    if (isActive !== undefined) query.isActive = isActive === "true";
+    if (isActive !== undefined) query.isActive = isActive === 'true';
 
     const users = await User.find(query).select(
-      "userId clerkUserId email name role isActive createdAt statistics"
+      'userId clerkUserId email name role isActive createdAt statistics'
     );
 
     res.status(200).json({
@@ -669,8 +669,8 @@ router.get("/admin/all", async (req, res) => {
       users,
     });
   } catch (error) {
-    console.error("Error fetching all users:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error('Error fetching all users:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

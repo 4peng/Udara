@@ -138,7 +138,7 @@ Don't panic over short-term spikes (like from cooking). Look for long-term trend
     subtitle: "How air quality varies throughout the year and what to expect",
     readTime: "4 min read",
     image: "https://images.unsplash.com/photo-1476610182048-b716b8518aae?w=800&fit=crop",
-    content: "\nAir quality is not static; it fluctuates with the seasons due to changes in weather patterns and human activities.\n\n## Winter\n\n**Inversions**: Cold air near the ground can get trapped by a layer of warm air above, holding pollutants close to the surface.\n**Heating**: Wood burning and increased energy use for heating contribute to higher particulate matter levels.\n\n## Spring\n\n**Allergens**: Tree and grass pollens are at their peak, affecting those with allergies and asthma.\n**Wind**: Windy conditions can transport dust and pollutants over long distances.\n\n## Summer\n\n**Ozone**: Sunlight and heat react with emissions from vehicles and industry to form ground-level ozone, a powerful respiratory irritant.\n**Wildfires**: Heat and drought increase the risk of wildfires, which can degrade air quality across entire continents.\n\n## Autumn\n\n**Stagnation**: Calm weather can lead to pollutant buildup.\n**Leaf Burning**: In some areas, burning yard waste releases smoke and particles.\n\n## Preparation\n\nKnowing these patterns helps you prepare\u2014like ensuring you have allergy medication in spring or checking ozone forecasts in summer.\n    ",
+    content: "\nAir quality is not static; it fluctuates with the seasons due to changes in weather patterns and human activities.\n\n## Winter\n\n**Inversions**: Cold air near the ground can get trapped by a layer of warm air above, holding pollutants close to the surface.\n**Heating**: Wood burning and increased energy use for heating contribute to higher particulate matter levels.\n\n## Spring\n\n**Allergens**: Tree and grass pollens are at their peak, affecting those with allergies and asthma.\n**Wind**: Windy conditions can transport dust and pollutants over long distances.\n\n## Summer\n\n**Ozone**: Sunlight and heat react with emissions from vehicles and industry to form ground-level ozone, a powerful respiratory irritant.\n**Wildfires**: Heat and drought increase the risk of wildfires, which can degrade air quality across entire continents.\n\n## Autumn\n\n**Stagnation**: Calm weather can lead to pollutant buildup.\n**Leaf Burning**: In some areas, burning yard waste releases smoke and particles.\n\n## Preparation\n\nKnowing these patterns helps you prepare—like ensuring you have allergy medication in spring or checking ozone forecasts in summer.\n    ",
   },
   "7": {
     title: "Air Quality and Exercise",
@@ -285,7 +285,7 @@ export default function ArticleScreen() {
       if (trimmedLine.startsWith("- ")) {
         return (
           <View key={index} style={styles.listItem}>
-            <Text style={styles.bullet}>\u2022</Text>
+            <Text style={styles.bullet}>•</Text>
             <Text style={styles.paragraph}>{renderInlineStyles(trimmedLine.replace("- ", ""))}</Text>
           </View>
         )

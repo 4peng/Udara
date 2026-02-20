@@ -17,7 +17,7 @@ const SENSITIVITY_NA_PER_PPM = {
   SO2: 410.0,
   NO2: -112.5,
   CO: 315.0,
-  O3: -425.0
+  O3: -425.0,
 };
 
 // Zero Current (nA)
@@ -25,7 +25,7 @@ const ZERO_CURRENT_NA = {
   SO2: 930.0,
   NO2: 9.0,
   CO: 1418.0,
-  O3: -19.0
+  O3: -19.0,
 };
 
 // Sensor mapping
@@ -33,7 +33,7 @@ const SN_TO_GAS = {
   SN1: 'NO2',
   SN2: 'O3',
   SN3: 'CO',
-  SN4: 'SO2'
+  SN4: 'SO2',
 };
 
 /**
@@ -51,12 +51,12 @@ function calculateGasConcentration(v_we, v_ae, gasName) {
   // 1. Compute Current (nA)
   // Formula: I_nA = (V_WE - V_AE) / Gain - Zero_Offset
   const dV = v_we - v_ae;
-  const I_nA = (dV / AFE_GAIN_V_PER_NA) - (ZERO_CURRENT_NA[gasName] || 0.0);
+  const I_nA = dV / AFE_GAIN_V_PER_NA - (ZERO_CURRENT_NA[gasName] || 0.0);
 
   // 2. Convert to PPM
   const sens = SENSITIVITY_NA_PER_PPM[gasName] || 1.0;
   if (sens === 0) return { ppm: null, ppb: null };
-  
+
   let ppm = I_nA / sens;
 
   // 3. Clean (Clamp negative values to 0)
@@ -65,7 +65,7 @@ function calculateGasConcentration(v_we, v_ae, gasName) {
 
   return {
     ppm: Math.round(ppm * 1000) / 1000, // 3 decimal places
-    ppb: Math.round(ppb * 100) / 100    // 2 decimal places
+    ppb: Math.round(ppb * 100) / 100, // 2 decimal places
   };
 }
 
@@ -77,10 +77,14 @@ function calculateGasConcentration(v_we, v_ae, gasName) {
 function processAllGases(alphasense_voltages) {
   if (!alphasense_voltages) {
     return {
-      NO2_ppm: null, NO2_ppb: null,
-      O3_ppm: null, O3_ppb: null,
-      CO_ppm: null, CO_ppb: null,
-      SO2_ppm: null, SO2_ppb: null
+      NO2_ppm: null,
+      NO2_ppb: null,
+      O3_ppm: null,
+      O3_ppb: null,
+      CO_ppm: null,
+      CO_ppb: null,
+      SO2_ppm: null,
+      SO2_ppb: null,
     };
   }
 
@@ -106,5 +110,5 @@ module.exports = {
   SN_TO_GAS,
   SENSITIVITY_NA_PER_PPM,
   ZERO_CURRENT_NA,
-  AFE_GAIN_V_PER_NA
+  AFE_GAIN_V_PER_NA,
 };

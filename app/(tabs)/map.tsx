@@ -29,6 +29,8 @@ export default function MapScreen() {
     unhealthy: true,
     very_unhealthy: true,
     hazardous: true,
+    monitored: true,
+    unmonitored: true,
   })
   
   // Force map refresh on connection restore
@@ -47,6 +49,11 @@ export default function MapScreen() {
     if (!Array.isArray(devices)) return []
 
     return devices.filter((sensor) => {
+      // 1. Check Monitoring Filter
+      if (sensor.isMonitored && !filters.monitored) return false;
+      if (!sensor.isMonitored && !filters.unmonitored) return false;
+
+      // 2. Check AQI Category Filter
       // Find which category this sensor belongs to based on AQI
       const category = SIMPLE_AQI_CATEGORIES.find(c => 
         sensor.aqi >= c.minValue && sensor.aqi <= c.maxValue
@@ -142,6 +149,34 @@ export default function MapScreen() {
             </TouchableOpacity>
           </View>
           <ScrollView style={styles.modalBody}>
+            <Text style={styles.filterSectionTitle}>Monitoring Status</Text>
+            
+            <TouchableOpacity
+              style={styles.filterItem}
+              onPress={() => setFilters(prev => ({ ...prev, monitored: !prev.monitored }))}
+            >
+              <View style={styles.filterLeft}>
+                <Ionicons name="eye" size={20} color="#4361EE" style={{ marginRight: 10 }} />
+                <Text style={styles.filterText}>Monitored Sensors</Text>
+              </View>
+              <View style={[styles.checkbox, filters.monitored && styles.checkboxActive]}>
+                {filters.monitored && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.filterItem, { marginBottom: 20 }]}
+              onPress={() => setFilters(prev => ({ ...prev, unmonitored: !prev.unmonitored }))}
+            >
+              <View style={styles.filterLeft}>
+                <Ionicons name="eye-off-outline" size={20} color="#666" style={{ marginRight: 10 }} />
+                <Text style={styles.filterText}>Unmonitored Sensors</Text>
+              </View>
+              <View style={[styles.checkbox, filters.unmonitored && styles.checkboxActive]}>
+                {filters.unmonitored && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
+              </View>
+            </TouchableOpacity>
+
             <Text style={styles.filterSectionTitle}>Air Quality Levels</Text>
             {SIMPLE_AQI_CATEGORIES.map((category, index) => (
               <TouchableOpacity
