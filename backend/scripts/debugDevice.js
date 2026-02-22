@@ -1,5 +1,7 @@
 // scripts/debugDevice.js
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env'), override: false });
 const mongoose = require('mongoose');
 const Device = require('../model/Device'); // Uses the local Model file
 

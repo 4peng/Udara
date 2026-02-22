@@ -1,9 +1,14 @@
 // api/index.js - Serverless version for Vercel
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+
+const { setServers } = require('node:dns/promises');
+
+// Set DNS servers to resolve SRV records reliably
+setServers(['1.1.1.1', '8.8.8.8']);
 
 const app = express();
 

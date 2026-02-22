@@ -1,5 +1,7 @@
 // scripts/simulateBadAir.js
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env'), override: false });
 const mongoose = require('mongoose');
 const { setServers } = require('node:dns/promises');
 

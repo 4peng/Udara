@@ -31,13 +31,16 @@
 *   **System Logging:** Added dedicated logging routes and models to track device status and system events.
 
 ## Key File Locations
-*   `backend/api/index.js`: Main entry point (Render-compatible).
+*   `backend/api/index.js`: Main entry point (Render/Local compatible).
 *   `backend/jobs/realtimeMonitor.js`: The "Engine" for real-time notifications.
 *   `backend/routes/csvUpload.js`: Routes for CSV data management.
+*   `backend/scripts/simulateBadAir.js`: Script to trigger hazardous air quality alerts.
+*   `backend/scripts/registerDevices.js`: Script to setup initial mock devices.
 *   `context/ConnectivityContext.tsx`: Global connectivity state.
 *   `context/MonitoringContext.tsx`: Manages active monitoring areas.
 *   `hooks/useDevicesWithMonitoring.ts`: Hook for managing devices within monitored areas.
 *   `hooks/usePushNotifications.ts`: Centralized, robust hook for notification handling.
+*   `config/api.ts`: Centralized API configuration and endpoint definitions.
 
 ## Development Workflow
 
@@ -70,6 +73,6 @@ node scripts/simulateBadAir.js
 ```
 
 ## Configuration Notes
-*   **API Connection:** Configured in `config/api.ts`. Currently pointing to `https://udara.onrender.com`.
-*   **Google Auth:** Requires valid SHA-1 in Google Cloud Console for the package `com.fourpeng.udara`.
+*   **API Connection:** Configured in `config/api.ts`. Currently pointing to `https://udara.onrender.com` by default.
+*   **Google Auth:** Requires valid SHA-1 in Google Cloud Console for the package `com.fourpeng.udara` and a `google-services.json` file.
 *   **Change Streams:** Requires the MongoDB cluster to be a Replica Set (Atlas default).

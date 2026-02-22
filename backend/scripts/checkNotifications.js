@@ -1,5 +1,9 @@
 // scripts/checkNotifications.js
-require('dotenv').config();
+const path = require('path');
+// Load Backend secrets (DB)
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+// Load App context (URL)
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env'), override: false });
 const mongoose = require('mongoose');
 const User = require('../model/User');
 const Notification = require('../model/Notification');

@@ -1,14 +1,18 @@
 // scripts/resetCooldown.js
 // Usage: node scripts/resetCooldown.js
 
+const path = require('path');
+// Load exclusively from root .env
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
+
 const fetch = require('node-fetch');
 const { setServers } = require('node:dns/promises');
 
 // Set DNS servers to resolve records reliably
 setServers(['1.1.1.1', '8.8.8.8']);
 
-// Default to environment variable (Production), fallback for local testing
-const API_URL = process.env.BACKEND_URL || 'http://localhost:4000';
+// Source of Truth for URL
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000';
 
 async function reset() {
   console.log(`🔄 Requesting cooldown reset from ${API_URL}...`);
